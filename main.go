@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"embed"
 	"encoding/json"
 	"flag"
@@ -287,9 +286,7 @@ func main() {
 	// Listener con SO_REUSEADDR
 	lc := net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {
-			return c.Control(func(fd uintptr) {
-				_ = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
-			})
+			return c.Control(reuseAddrControl)
 		},
 	}
 	listener, err := lc.Listen(nil, "tcp", fmt.Sprintf(":%d", port))
