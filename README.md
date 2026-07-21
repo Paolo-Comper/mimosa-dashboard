@@ -4,7 +4,7 @@
   <h1>MIMOSA</h1>
   <p><strong>Monitoraggio Inquinamento MObile Sistema Aria</strong></p>
   <p>
-    Dashboard web per la qualità dell'aria in tempo reale<br>
+    Dashboard web per la qualita dell'aria in tempo reale<br>
     Riceve dati via MQTT da sensori MIMOSA su Raspberry Pi
   </p>
   <p>
@@ -13,40 +13,39 @@
     <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows">
     <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS">
     <img src="https://img.shields.io/badge/MQTT-660066?style=for-the-badge&logo=mqtt&logoColor=white" alt="MQTT">
-    <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License">
   </p>
 </div>
 
 ---
 
-## ✨ Caratteristiche
+## Caratteristiche
 
-- **MQTT nativo** — si connette al broker in tempo reale
-- **Grafici live** — PM₁, PM₂.₅, PM₁₀, temperatura, umidità, pressione
-- **Mappa GPS** — ultima posizione rilevata, tracking in tempo reale
-- **Tabella dati** — cronologia con filtro per client
-- **Esportazione** — CSV / JSON con un click
-- **Portatile** — singolo eseguibile, nessuna installazione
-- **Cross-platform** — Linux, Windows, macOS
+- **MQTT nativo** -- si connette al broker in tempo reale
+- **Grafici live** -- PM1, PM2.5, PM10, temperatura, umidita, pressione
+- **Mappa GPS** -- ultima posizione rilevata, tracking in tempo reale
+- **Tabella dati** -- cronologia con filtro per client
+- **Esportazione** -- CSV / JSON con un click
+- **Portatile** -- singolo eseguibile, nessuna installazione
+- **Cross-platform** -- Linux, Windows, macOS
 
 ---
 
-## 🚀 Download rapido
+## Download rapido
 
 Scarica l'ultima versione dalle [release](https://github.com/Paolo-Comper/mimosa-dashboard/releases):
 
 | Piattaforma | File |
 |-------------|------|
-| 🐧 Linux x86_64 | `mimosa-linux-amd64` |
-| 🪟 Windows x86_64 | `mimosa-windows-amd64.exe` |
-| 🍏 macOS Intel | `mimosa-darwin-amd64` |
-| 🍏 macOS ARM (M1/M2) | `mimosa-darwin-arm64` |
+| Linux x86_64 | `mimosa-linux-amd64` |
+| Windows x86_64 | `mimosa-windows-amd64.exe` |
+| macOS Intel | `mimosa-darwin-amd64` |
+| macOS ARM (M1/M2) | `mimosa-darwin-arm64` |
 
 L'eseguibile contiene **tutto** (HTML, JS, CSS, immagini). Zero dipendenze.
 
 ---
 
-## 🔧 Compilazione
+## Compilazione
 
 Clona e compila con Go:
 
@@ -60,7 +59,7 @@ Risultato: un singolo file `mimosa` (o `mimosa.exe` su Windows).
 
 ---
 
-## 📖 Utilizzo
+## Utilizzo
 
 ### Avvio rapido
 
@@ -101,7 +100,7 @@ Legge HTML/CSS/JS dal disco (modifichi e ricarichi il browser senza ricompilare)
 
 ---
 
-## 🪟 Windows
+## Windows
 
 ### Doppio click
 
@@ -125,7 +124,7 @@ go build -o mimosa.exe .
 
 ---
 
-## 📡 Formato dati MQTT
+## Formato dati MQTT
 
 Topic: `mimosa/<nome-client>/data`
 
@@ -148,7 +147,7 @@ Doppio click sul menu client per inserire un nome custom.
 
 ---
 
-## 💾 Esportazione dati
+## Esportazione dati
 
 | Formato | Uso |
 |---------|-----|
@@ -159,7 +158,7 @@ I dati sono salvati automaticamente nel **localStorage** del browser.
 
 ---
 
-## 📁 Struttura
+## Struttura
 
 ```
 mimosa-dashboard/
@@ -184,6 +183,3 @@ mimosa-dashboard/
 
 ---
 
-## 📄 Licenza
-
-Progetto **MIMOSA** — ITT Marconi Rovereto & Osservatorio di Urbino
