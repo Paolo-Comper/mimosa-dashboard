@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIMOSA - Monitoraggio Aria</title>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<!-- Paho MQTT -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+<!-- MapLibre GL -->
+<link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div class="logo logo-marconi">
+    <img src="res/marconi.png" alt="ITT Marconi Rovereto">
+  </div>
+  <div class="title">
+    <h1>MIMOSA</h1>
+    <p class="subtitle">Monitoraggio Inquinamento MObile Sistema Aria</p>
+  </div>
+  <div class="logo logo-urbino">
+    <img src="res/urbino.png" alt="Osservatorio Urbino">
+  </div>
+</header>
+
+<main>
+  <!-- Connection Panel -->
+  <section class="panel connection-panel">
+    <div class="panel-row">
+      <div class="control-group">
+        <label for="clientSelect">Client RPI:</label>
+        <select id="clientSelect">
+          <option value="+">Tutti i client</option>
+          <option value="rpi-zero-1">rpi-zero-1</option>
+          <option value="rpi-zero-2">rpi-zero-2</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label for="brokerInput">Broker MQTT:</label>
+        <input type="text" id="brokerInput" value="broker.hivemq.com" readonly>
+      </div>
+      <div class="control-group">
+        <label>Stato:</label>
+        <span id="connectionStatus" class="status-indicator disconnected">Disconnesso</span>
+      </div>
+      <div class="control-group">
+        <button id="connectBtn" class="btn btn-primary">Connetti</button>
+      </div>
+    </div>
+    <div class="panel-row stats-row">
+      <span>Dati ricevuti: <strong id="dataCount">0</strong></span>
+      <span>Ultimo aggiornamento: <strong id="lastUpdate">—</strong></span>
+      <span>Topic: <code id="currentTopic">mimosa/+/data</code></span>
+    </div>
+  </section>
+
+  <!-- Current Values -->
+  <section class="panel current-values" id="currentValues">
+    <h3>Valori Correnti</h3>
+    <div class="gauge-grid">
+      <div class="gauge-card pm">
+        <div class="gauge-label">PM<sub>1</sub></div>
+        <div class="gauge-value" id="cv-pm1">—</div>
+        <div class="gauge-unit">µg/m³</div>
+      </div>
+      <div class="gauge-card pm">
+        <div class="gauge-label">PM<sub>2.5</sub></div>
+        <div class="gauge-value" id="cv-pm25">—</div>
+        <div class="gauge-unit">µg/m³</div>
+      </div>
+      <div class="gauge-card pm">
+        <div class="gauge-label">PM<sub>10</sub></div>
+        <div class="gauge-value" id="cv-pm10">—</div>
+        <div class="gauge-unit">µg/m³</div>
+      </div>
+      <div class="gauge-card temp">
+        <div class="gauge-label">Temperatura</div>
+        <div class="gauge-value" id="cv-temp">—</div>
+        <div class="gauge-unit">°C</div>
+      </div>
+      <div class="gauge-card humidity">
+        <div class="gauge-label">Umidità</div>
+        <div class="gauge-value" id="cv-hum">—</div>
+        <div class="gauge-unit">%</div>
+      </div>
+      <div class="gauge-card pressure">
+        <div class="gauge-label">Pressione</div>
+        <div class="gauge-value" id="cv-press">—</div>
+        <div class="gauge-unit">hPa</div>
+      </div>
+      <div class="gauge-card gps">
+        <div class="gauge-label">GPS</div>
+        <div class="gauge-value" id="cv-gps">—</div>
+        <div class="gauge-unit" id="cv-gps-sats"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Limit warning -->
+  <div id="limitWarning" class="limit-warning" style="display:none;">
+    ⚠️ Solo gli ultimi <strong>50</strong> campioni sono visualizzati nei grafici e nella mappa.
+    Ci sono <strong id="totalSamples">0</strong> campioni in totale.
+    <a href="#" onclick="exportCSV();return false;">Esporta CSV</a> per vedere tutti i dati.
+  </div>
+
+  <!-- Charts -->
+  <section class="chart-grid">
+    <div class="panel chart-container">
+      <h3>Particolato (PM<sub>1</sub>, PM<sub>2.5</sub>, PM<sub>10</sub>)</h3>
+      <canvas id="chartPM"></canvas>
+    </div>
+    <div class="panel chart-container">
+      <h3>Temperatura</h3>
+      <canvas id="chartTemp"></canvas>
+    </div>
+    <div class="panel chart-container">
+      <h3>Umidità</h3>
+      <canvas id="chartHum"></canvas>
+    </div>
+    <div class="panel chart-container">
+      <h3>Pressione Atmosferica</h3>
+      <canvas id="chartPress"></canvas>
+    </div>
+  </section>
+
+  <!-- Map -->
+  <section class="panel map-panel">
+    <h3>Tracciato GPS</h3>
+    <div id="map"></div>
+  </section>
+
+  <!-- Data Table & Export -->
+  <section class="panel data-panel">
+    <div class="panel-row between">
+      <h3>Dati Ricevuti</h3>
+      <div class="export-buttons">
+        <button id="exportCSV" class="btn btn-success">📥 Esporta CSV</button>
+        <button id="exportJSON" class="btn btn-info">📥 Esporta JSON</button>
+        <button id="clearData" class="btn btn-danger">🗑️ Cancella Dati</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th>Ora</th>
+            <th>Client</th>
+            <th>PM<sub>1</sub></th>
+            <th>PM<sub>2.5</sub></th>
+            <th>PM<sub>10</sub></th>
+            <th>T° PMS</th>
+            <th>T° DHT22</th>
+            <th>T° BME</th>
+            <th>Umidità</th>
+            <th>Press.</th>
+            <th>Lat</th>
+            <th>Lon</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <!-- populated by JS -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script src="src/state.js"></script>
+<script src="src/storage.js"></script>
+<script src="src/charts.js"></script>
+<script src="src/mqtt.js"></script>
+<script src="src/export.js"></script>
+<script src="src/dashboard.js"></script>
+<script src="src/main.js"></script>
+<script src="src/mappa.js"></script>
+</body>
+</html>
+
