@@ -34,12 +34,12 @@
 
 Scarica l'ultima versione dalle [release](https://github.com/Paolo-Comper/mimosa-dashboard/releases):
 
-| Piattaforma | File |
-|-------------|------|
-| Linux x86_64 | `mimosa-linux-amd64` |
-| Windows x86_64 | `mimosa-windows-amd64.exe` |
-| macOS Intel | `mimosa-darwin-amd64` |
-| macOS ARM (M1/M2) | `mimosa-darwin-arm64` |
+| Piattaforma       | File                       |
+| ----------------- | -------------------------- |
+| Linux x86_64      | `mimosa-linux-amd64`       |
+| Windows x86_64    | `mimosa-windows-amd64.exe` |
+| macOS Intel       | `mimosa-darwin-amd64`      |
+| macOS ARM (M1/M2) | `mimosa-darwin-arm64`      |
 
 L'eseguibile contiene **tutto** (HTML, JS, CSS, immagini). Zero dipendenze.
 
@@ -149,37 +149,10 @@ Doppio click sul menu client per inserire un nome custom.
 
 ## Esportazione dati
 
-| Formato | Uso |
-|---------|-----|
-| **CSV** | Excel, LibreOffice, analisi |
+| Formato  | Uso                         |
+| -------- | --------------------------- |
+| **CSV**  | Excel, LibreOffice, analisi |
 | **JSON** | Elaborazioni programmatiche |
 
 I dati sono salvati automaticamente nel **localStorage** del browser.
-
----
-
-## Struttura
-
-```
-mimosa-dashboard/
-├── main.go              ← server Go (embed di tutto)
-├── go.mod / go.sum      ← dipendenze
-├── index.html           ← interfaccia dashboard
-├── styles.css           ← tema scuro
-├── src/
-│   ├── state.js         ← costanti, stato globale, DOM
-│   ├── storage.js       ← salvataggio localStorage
-│   ├── charts.js        ← grafici Chart.js
-│   ├── mqtt.js          ← client MQTT
-│   ├── export.js        ← esportazione CSV/JSON
-│   ├── dashboard.js     ← rendering interfaccia
-│   ├── main.js          ← init, event listener
-│   └── mappa.js         ← mappa GPS
-├── res/
-│   ├── marconi.png      ← logo ITT Marconi
-│   └── urbino.png       ← logo Osservatorio Urbino
-└── README.md
-```
-
----
 
