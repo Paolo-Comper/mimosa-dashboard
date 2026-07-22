@@ -18,6 +18,14 @@
 
 ---
 
+## Anteprima
+
+<img src="res/screenshot.png" alt="Screenshot della dashboard MIMOSA" width="100%">
+
+> Video demo: [res/demo.mp4](res/demo.mp4) — panoramica della dashboard in azione con dati in tempo reale.
+
+---
+
 ## Caratteristiche
 
 - **MQTT nativo** -- si connette al broker in tempo reale
