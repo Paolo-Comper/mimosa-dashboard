@@ -37,6 +37,7 @@ function publishTestData(clientName) {
 
 // ---- Init ----
 loadData();
+populateClientSelect();
 
 // Event listeners
 connectBtn.addEventListener('click', connectMQTT);
@@ -45,15 +46,19 @@ document.getElementById('exportCSV').addEventListener('click', exportCSV);
 document.getElementById('exportJSON').addEventListener('click', exportJSON);
 document.getElementById('clearData').addEventListener('click', clearData);
 
-// Double-click to add custom client
+document.getElementById('addDeviceBtn').addEventListener('click', function() {
+  var name = prompt('Inserisci il nome del nuovo device RPI:');
+  if (name && name.trim()) {
+    addDevice(name.trim());
+    onClientChange();
+  }
+});
+
+// Double-click to add custom client (fallback)
 clientSelect.addEventListener('dblclick', function() {
-  var custom = prompt('Inserisci il nome del client RPI:');
-  if (custom && custom.trim()) {
-    var opt = document.createElement('option');
-    opt.value = custom.trim();
-    opt.textContent = custom.trim();
-    clientSelect.appendChild(opt);
-    clientSelect.value = custom.trim();
+  var name = prompt('Inserisci il nome del client RPI:');
+  if (name && name.trim()) {
+    addDevice(name.trim());
     onClientChange();
   }
 });

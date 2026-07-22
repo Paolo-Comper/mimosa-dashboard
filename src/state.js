@@ -1,6 +1,8 @@
 /* ===== MIMOSA - State & Constants ===== */
 
 const STORAGE_KEY = 'mimosa_data';
+const STORAGE_DEVICES_KEY = 'mimosa_devices';
+const DEFAULT_DEVICES = ['rpi-zero-1', 'rpi-zero-2'];
 const MAX_RECORDS = 5000;
 const TOPIC_BASE = 'mimosa';
 const KEEP_ALIVE = 60;

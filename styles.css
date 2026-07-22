@@ -102,6 +102,21 @@ header .logo img { height: 58px; width: auto; display: block; object-fit: contai
 }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover { background: #3a8aee; filter: brightness(1.1); }
+.btn-small {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 2.2rem;
+  height: 2.4rem;
+  white-space: nowrap;
+}
+.btn-small:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.client-row { display: flex; gap: 4px; align-items: stretch; }
+.client-row select { flex: 1; }
 .btn-success { background: var(--success); color: #fff; }
 .btn-success:hover { filter: brightness(1.1); }
 .btn-info { background: var(--info); color: #fff; }

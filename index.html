@@ -34,11 +34,12 @@
     <div class="panel-row">
       <div class="control-group">
         <label for="clientSelect">Client RPI:</label>
-        <select id="clientSelect">
-          <option value="+">Tutti i client</option>
-          <option value="rpi-zero-1">rpi-zero-1</option>
-          <option value="rpi-zero-2">rpi-zero-2</option>
-        </select>
+        <div class="client-row">
+          <select id="clientSelect">
+            <option value="+">Tutti i client</option>
+          </select>
+          <button id="addDeviceBtn" class="btn btn-small" title="Aggiungi un nuovo device">+</button>
+        </div>
       </div>
       <div class="control-group">
         <label for="brokerInput">Broker MQTT:</label>
