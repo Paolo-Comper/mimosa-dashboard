@@ -1,7 +1,48 @@
 /* ===== Reset & Base ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ===== Tema CHIARO (default) ===== */
 :root {
+  --bg: #eef2f7;
+  --surface: #ffffff;
+  --surface-2: #f2f5f9;
+  --border: #d5dee8;
+  --text: #16232f;
+  --text-dim: #5d6f80;
+  --primary: #2f7fd6;
+  --success: #1fa85c;
+  --danger: #d63a2f;
+  --warning: #d98a0b;
+  --info: #2f8fc4;
+  --pm-color: #d63a2f;
+  --temp-color: #d98a0b;
+  --hum-color: #2f8fc4;
+  --press-color: #1fa85c;
+  --shadow: 0 2px 12px rgba(20,40,60,0.08);
+  --header-bg: #ffffff;
+  --link-hover: #1f6fbf;
+  --row-border: rgba(42,63,85,0.10);
+  --row-hover: rgba(74,158,255,0.07);
+  --row-alt: rgba(20,40,60,0.025);
+  --scroll-thumb-hover: #b3c1cf;
+  --chart-tick: #5d6f80;
+  --chart-grid: rgba(42,63,85,0.15);
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-text: #16232f;
+  --chart-tooltip-border: #d5dee8;
+  --radius: 10px;
+
+  /* ===== Dimensione loghi =====
+     Cambia SOLO questi due valori per ridimensionare i loghi.
+     --logo-height: altezza dei loghi in px (larghezza automatica).
+     --logo-max-width: larghezza massima del singolo logo.
+     Valori attuali = 2,5x rispetto al default originale (58px). */
+  --logo-height: 145px;
+  --logo-max-width: 520px;
+}
+
+/* ===== Tema SCURO (attivato con data-theme="dark" su <html>) ===== */
+:root[data-theme="dark"] {
   --bg: #0f1923;
   --surface: #1a2a3a;
   --surface-2: #213143;
@@ -17,8 +58,18 @@
   --temp-color: #f39c12;
   --hum-color: #5dade2;
   --press-color: #2ecc71;
-  --radius: 10px;
   --shadow: 0 2px 12px rgba(0,0,0,0.3);
+  --header-bg: linear-gradient(135deg, #1a2a3a 0%, #1f3347 100%);
+  --link-hover: #7cb9ff;
+  --row-border: rgba(42,63,85,0.4);
+  --row-hover: rgba(74,158,255,0.05);
+  --row-alt: rgba(255,255,255,0.02);
+  --scroll-thumb-hover: #3a556f;
+  --chart-tick: #8899aa;
+  --chart-grid: rgba(42,63,85,0.2);
+  --chart-tooltip-bg: #1a2a3a;
+  --chart-tooltip-text: #e0e8f0;
+  --chart-tooltip-border: #2a3f55;
 }
 
 html { font-size: 15px; }
@@ -38,14 +89,27 @@ header {
   max-width: 1400px; margin: 0 auto 8px;
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; padding: 12px 20px;
-  background: linear-gradient(135deg, #1a2a3a 0%, #1f3347 100%);
+  background: var(--header-bg);
   border-radius: var(--radius); box-shadow: var(--shadow);
   border: 1px solid var(--border);
 }
 header .logo { display: flex; align-items: center; }
-header .logo img { height: 58px; width: auto; display: block; object-fit: contain; }
-.logo-marconi img { max-width: 200px; }
-.logo-urbino img { max-width: 220px; }
+header .logo img { height: var(--logo-height); width: auto; display: block; object-fit: contain; }
+.logo-marconi img { max-width: var(--logo-max-width); }
+.logo-urbino img { max-width: var(--logo-max-width); }
+/* Osservatorio di Urbino + Università di Urbino.
+   In light mode il fondo dell'header è bianco e il gruppo è senza sfondo/ombra,
+   così il bianco dei loghi non si distingue e non sembra "in rilievo". */
+.logo-urbino {
+  padding: 6px 12px;
+  gap: 12px;
+  border-radius: 8px;
+}
+/* In dark mode invece il gruppo resta obbligatoriamente su campo bianco */
+:root[data-theme="dark"] .logo-urbino {
+  background: #ffffff;
+  box-shadow: 0 1px 6px rgba(20,40,60,0.12);
+}
 .title { text-align: center; flex: 1; }
 .title h1 {
   font-size: 2rem; font-weight: 800;
@@ -54,6 +118,16 @@ header .logo img { height: 58px; width: auto; display: block; object-fit: contai
   letter-spacing: 3px;
 }
 .subtitle { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; letter-spacing: 1px; }
+
+/* ===== Theme toggle ===== */
+.theme-toggle {
+  margin-top: 8px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 20px;
+  padding: 4px 14px; font-size: 0.75rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.theme-toggle:hover { border-color: var(--primary); color: var(--primary); }
 
 /* ===== Panels ===== */
 .panel {
@@ -115,12 +189,30 @@ header .logo img { height: 58px; width: auto; display: block; object-fit: contai
   white-space: nowrap;
 }
 .btn-small:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
-.client-row { display: flex; gap: 4px; align-items: stretch; }
-.client-row select { flex: 1; }
+.select-row { display: flex; gap: 4px; align-items: stretch; }
+.select-row select { flex: 1; }
+
+/* ===== Export menu (formati multipli) ===== */
+.export-buttons { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.export-confirm { width: 100%; margin-top: 4px; }
+.export-dropdown { position: relative; display: inline-block; }
+.export-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
+  display: flex; flex-direction: column; gap: 8px;
+  min-width: 190px; padding: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: var(--shadow);
+}
+.export-menu[hidden] { display: none; }
+.export-menu-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+.export-option { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text); cursor: pointer; }
+.export-option input { width: auto; }
 .btn-success { background: var(--success); color: #fff; }
 .btn-success:hover { filter: brightness(1.1); }
 .btn-info { background: var(--info); color: #fff; }
 .btn-info:hover { filter: brightness(1.1); }
+.btn-warning { background: transparent; color: var(--warning); border: 1px solid var(--warning); }
+.btn-warning:hover { background: rgba(217,138,11,0.15); }
 .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
 .btn-danger:hover { background: rgba(231,76,60,0.15); }
 
@@ -181,11 +273,16 @@ header .logo img { height: 58px; width: auto; display: block; object-fit: contai
   cursor: pointer;
   margin-left: auto;
 }
-.limit-warning a:hover { color: #7cb9ff; }
+.limit-warning a:hover { color: var(--link-hover); }
 
 /* ===== Map ===== */
 .map-panel { padding-bottom: 8px; }
 #map { width: 100%; height: 380px; border-radius: 6px; overflow: hidden; }
+.map-unavailable {
+  display: flex; align-items: center; justify-content: center; height: 100%;
+  color: var(--text-dim); font-size: 0.9rem; text-align: center; padding: 0 16px;
+  background: var(--surface-2); border: 1px dashed var(--border); border-radius: 6px;
+}
 .map-panel .maplibregl-popup-content {
   background: var(--surface) !important;
   color: var(--text) !important;
@@ -224,21 +321,24 @@ th {
   padding: 8px 10px; text-align: left; font-weight: 600;
   border-bottom: 2px solid var(--border); white-space: nowrap;
 }
-td { padding: 6px 10px; border-bottom: 1px solid rgba(42,63,85,0.4); }
-tr:hover td { background: rgba(74,158,255,0.05); }
-tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+td { padding: 6px 10px; border-bottom: 1px solid var(--row-border); }
+tr:hover td { background: var(--row-hover); }
+tr:nth-child(even) td { background: var(--row-alt); }
+/* Righe già esportate: testo attenuato + spunta verde */
+tr.exported td { color: var(--text-dim); }
+tr.exported td:first-child::before { content: '✓  '; color: var(--success); font-weight: 700; }
 
 /* ===== Scrollbar ===== */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--surface); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3a556f; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
 
 /* ===== Responsive ===== */
 @media (max-width: 700px) {
   header { flex-direction: column; gap: 8px; padding: 12px; }
-  header .logo img { height: 42px; }
-  .logo-marconi img, .logo-urbino img { max-width: 160px; }
+  header .logo img { height: 88px; }
+  .logo-marconi img, .logo-urbino img { max-width: 300px; }
   .title h1 { font-size: 1.5rem; }
   .panel-row { flex-direction: column; align-items: stretch; }
   .control-group { flex-wrap: wrap; }

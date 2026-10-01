@@ -1,8 +1,9 @@
 /* ===== MIMOSA - Init & Event Listeners ===== */
 
-// ---- Test data helper (from dev console) ----
-function publishTestData(clientName) {
-  var client = clientName || 'rpi-zero-1';
+// ---- Test data helper (dalla console del browser) ----
+function publishTestData(sensore, osservatorio) {
+  var nomeSensore = sensore || 'rpi-zero-1';
+  var nomeOsservatorio = osservatorio || DEFAULT_OSSERVATORIO;
   var now = Date.now() / 1000;
   var msg = JSON.stringify({
     timestamp: now,
@@ -30,39 +31,77 @@ function publishTestData(clientName) {
       valid: true
     }
   });
-  var topic = getPublishTopic(client);
-  console.log('Test data for ' + topic + ':', msg);
+  var topic = getPublishTopic(nomeOsservatorio, nomeSensore);
+  console.log('Test data per ' + topic + ':', msg);
   return { topic: topic, message: msg };
+}
+
+// ---- Menu di esportazione (formati multipli) ----
+function toggleExportMenu(show) {
+  var menu = $('exportMenu');
+  var btn = $('exportBtn');
+  var apri = typeof show === 'boolean' ? show : menu.hidden;
+  menu.hidden = !apri;
+  btn.setAttribute('aria-expanded', String(apri));
 }
 
 // ---- Init ----
 loadData();
-populateClientSelect();
+populateOsservatorioSelect();
+populateSensoreSelect();
+
+currentOsservatorio = osservatorioSelect.value;
+currentSensore = sensoreSelect.value;
 
 // Event listeners
 connectBtn.addEventListener('click', connectMQTT);
-clientSelect.addEventListener('change', onClientChange);
-document.getElementById('exportCSV').addEventListener('click', exportCSV);
-document.getElementById('exportJSON').addEventListener('click', exportJSON);
+osservatorioSelect.addEventListener('change', onSelectionChange);
+sensoreSelect.addEventListener('change', onSelectionChange);
+
+document.getElementById('exportBtn').addEventListener('click', function(e) {
+  e.stopPropagation();
+  toggleExportMenu();
+});
+document.getElementById('exportConfirm').addEventListener('click', function() {
+  esportaSelezionati();
+  toggleExportMenu(false);
+});
+document.getElementById('clearExported').addEventListener('click', clearExported);
 document.getElementById('clearData').addEventListener('click', clearData);
 
-document.getElementById('addDeviceBtn').addEventListener('click', function() {
-  var name = prompt('Inserisci il nome del nuovo device RPI:');
+document.addEventListener('click', function(e) {
+  var dentro = e.target && e.target.closest && e.target.closest('.export-dropdown');
+  if (!dentro) toggleExportMenu(false);
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') toggleExportMenu(false);
+});
+
+document.getElementById('addOsservatorioBtn').addEventListener('click', function() {
+  var name = prompt('Inserisci il nome del nuovo osservatorio:');
   if (name && name.trim()) {
-    addDevice(name.trim());
-    onClientChange();
+    addOsservatorio(name.trim());
+    onSelectionChange();
   }
 });
 
-// Double-click to add custom client (fallback)
-clientSelect.addEventListener('dblclick', function() {
-  var name = prompt('Inserisci il nome del client RPI:');
+document.getElementById('addSensoreBtn').addEventListener('click', function() {
+  var name = prompt('Inserisci il nome del nuovo sensore:');
   if (name && name.trim()) {
-    addDevice(name.trim());
-    onClientChange();
+    addSensore(name.trim());
+    onSelectionChange();
+  }
+});
+
+// Double-click per aggiungere rapidamente un sensore (fallback)
+sensoreSelect.addEventListener('dblclick', function() {
+  var name = prompt('Inserisci il nome del sensore:');
+  if (name && name.trim()) {
+    addSensore(name.trim());
+    onSelectionChange();
   }
 });
 
 // Initial render
 updateDashboard();
-console.log('MIMOSA avviato. test: publishTestData("rpi-zero-1")');
+console.log('MIMOSA avviato. test: publishTestData("rpi-zero-1", "mimosa")');

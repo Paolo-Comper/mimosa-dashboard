@@ -11,41 +11,76 @@
 }
 
 window.mimosaMap = null;
+window.ultimaFeatureMappa = null;
+
+// Basemap chiaro / scuro a seconda del tema
+const MAP_STYLE = {
+  light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+};
+
+function stileMappa() {
+  return document.documentElement.getAttribute('data-theme') === 'dark'
+    ? MAP_STYLE.dark
+    : MAP_STYLE.light;
+}
+
+function aggiungiLivelliMappa() {
+  const map = window.mimosaMap;
+  if (!map || map.getSource('posizione')) return;
+
+  map.addSource('posizione', {
+    type: 'geojson',
+    data: window.ultimaFeatureMappa
+      ? { type: 'FeatureCollection', features: [window.ultimaFeatureMappa] }
+      : { type: 'FeatureCollection', features: [] }
+  });
+
+  // Singolo punto verde (ultima posizione)
+  map.addLayer({
+    id: 'ultima-posizione',
+    type: 'circle',
+    source: 'posizione',
+    paint: {
+      'circle-radius': 10,
+      'circle-color': '#2ecc71',
+      'circle-stroke-width': 3,
+      'circle-stroke-color': '#ffffff',
+      'circle-opacity': 0.95
+    }
+  });
+
+  map.on('click', 'ultima-posizione', e => mostraPopupMappa(e));
+}
 
 function initMimosaMap() {
+  if (typeof maplibregl === 'undefined') {
+    const el = document.getElementById('map');
+    if (el) el.innerHTML = '<div class="map-unavailable">Mappa non disponibile: serve una connessione a internet.</div>';
+    return;
+  }
+
   const map = new maplibregl.Map({
     container: 'map',
-    style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    style: stileMappa(),
     center: [12.6376, 43.7238],
     zoom: 14
   });
 
   map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-  map.on('load', () => {
-    map.addSource('posizione', {
-      type: 'geojson',
-      data: { type: 'FeatureCollection', features: [] }
-    });
-
-    // Singolo punto verde (ultima posizione)
-    map.addLayer({
-      id: 'ultima-posizione',
-      type: 'circle',
-      source: 'posizione',
-      paint: {
-        'circle-radius': 10,
-        'circle-color': '#2ecc71',
-        'circle-stroke-width': 3,
-        'circle-stroke-color': '#ffffff',
-        'circle-opacity': 0.95
-      }
-    });
-
-    map.on('click', 'ultima-posizione', e => mostraPopupMappa(e));
-  });
+  // 'style.load' scatta anche dopo setStyle (cambio tema)
+  map.on('load', aggiungiLivelliMappa);
+  map.on('style.load', aggiungiLivelliMappa);
 
   window.mimosaMap = map;
+}
+
+// Cambia la basemap in base al tema corrente (invocata dal toggle tema)
+function applicaTemaMappa() {
+  const map = window.mimosaMap;
+  if (!map) return;
+  map.setStyle(stileMappa());
 }
 
 function mostraPopupMappa(e) {
@@ -54,7 +89,7 @@ function mostraPopupMappa(e) {
     .setLngLat(e.lngLat)
     .setHTML(`
       <div style="font-family: sans-serif; font-size: 13px; line-height: 1.5;">
-        <strong style="color:#4a9eff;">${p.ora}</strong><br>
+        <strong style="color:#2f7fd6;">${p.ora}</strong><br>
         📍 ${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)}<br>
         🏔️ ${p.alt ? Number(p.alt).toFixed(1) + ' m' : '—'} &nbsp;🛰️ ${p.sats || '—'} sat<br>
         🌫️ PM₁: ${p.pm1 ?? '—'} · PM₂.₅: ${p.pm25 ?? '—'} · PM₁₀: ${p.pm10 ?? '—'}<br>
@@ -97,6 +132,8 @@ function aggiornaMappa(dati) {
     }
   };
 
+  window.ultimaFeatureMappa = feature;
+
   const source = map.getSource('posizione');
   if (!source) return;
 
@@ -112,6 +149,7 @@ function aggiornaMappa(dati) {
 // Esponi le funzioni globalmente
 window.initMimosaMap = initMimosaMap;
 window.aggiornaMappa = aggiornaMappa;
+window.applicaTemaMappa = applicaTemaMappa;
 
 // Avvio automatico
 initMimosaMap();

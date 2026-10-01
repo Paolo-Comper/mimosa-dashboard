@@ -1,11 +1,10 @@
 /* ===== MIMOSA - Dashboard Render ===== */
 
 function updateDashboard() {
-  var filtered = currentClient === '+'
-    ? allData
-    : allData.filter(function(d) { return d.client === currentClient; });
+  var filtered = datiFiltrati();
 
   dataCount.textContent = filtered.length;
+  $('exportedCount').textContent = allData.filter(function(d) { return d.exported === true; }).length;
 
   // Limit warning
   var warn = document.getElementById('limitWarning');
@@ -22,7 +21,7 @@ function updateDashboard() {
       $(id).textContent = '\u2014';
     });
     $('cv-gps-sats').textContent = '';
-    tableBody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;color:#8899aa;">Nessun dato ricevuto</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:#5d6f80;">Nessun dato ricevuto</td></tr>';
     updateCharts([]);
     lastUpdate.textContent = '\u2014';
     return;
@@ -54,16 +53,17 @@ function updateDashboard() {
 
   // Map
   if (window.aggiornaMappa) {
-    window.aggiornaMappa(allData);
+    window.aggiornaMappa(filtered);
   }
 
   // Table (last 50, reversed)
   var rows = filtered.slice(-50).reverse();
   tableBody.innerHTML = rows.map(function(d) {
     var p = d.pms || {}, dh = d.dht22 || {}, b = d.bme280 || {}, g = d.gps || {};
-    return '<tr>'
+    return '<tr' + (d.exported ? ' class="exported"' : '') + '>'
       + '<td>' + fmtTime(d.timestamp) + '</td>'
-      + '<td>' + d.client + '</td>'
+      + '<td>' + (d.osservatorio || '\u2014') + '</td>'
+      + '<td>' + (d.sensore || '\u2014') + '</td>'
       + '<td>' + (p.pm1 != null ? p.pm1 : '\u2014') + '</td>'
       + '<td>' + (p.pm25 != null ? p.pm25 : '\u2014') + '</td>'
       + '<td>' + (p.pm10 != null ? p.pm10 : '\u2014') + '</td>'

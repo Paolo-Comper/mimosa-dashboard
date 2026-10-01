@@ -1,5 +1,4 @@
-/* ===== MIMOSA - MQTT Client ===== */
-
+/* ===== MIMOSA - MQTT (broker.hivemq.com) ===== */
 function connectMQTT() {
   if (isConnecting) return;
   if (mqttClient && mqttClient.isConnected()) {
@@ -7,20 +6,30 @@ function connectMQTT() {
     return;
   }
 
+  if (typeof Paho === 'undefined') {
+    connStatus.className = 'status-indicator disconnected';
+    connStatus.textContent = 'Libreria MQTT non caricata (serve internet)';
+    return;
+  }
+
   isConnecting = true;
+  manualDisconnect = false;
   connectBtn.textContent = 'Connessione...';
   connStatus.className = 'status-indicator connecting';
   connStatus.textContent = 'Connessione...';
 
+  var host = (brokerInput && brokerInput.value) ? brokerInput.value : 'broker.hivemq.com';
   var clientId = 'mimosa_web_' + Math.random().toString(36).slice(2, 10);
-  mqttClient = new Paho.Client('broker.hivemq.com', 8000, '/mqtt', clientId);
+  mqttClient = new Paho.Client(host, 8000, '/mqtt', clientId);
 
   mqttClient.onConnectionLost = function(resp) {
+    if (manualDisconnect) return;
     isConnecting = false;
     connectBtn.textContent = 'Connetti';
     connStatus.className = 'status-indicator disconnected';
     connStatus.textContent = 'Disconnesso (errore)';
     mqttClient = null;
+    currentSubTopic = null;
     scheduleReconnect();
   };
 
@@ -38,10 +47,13 @@ function connectMQTT() {
       connStatus.className = 'status-indicator connected';
       connStatus.textContent = 'Connesso';
 
+      currentOsservatorio = osservatorioSelect.value;
+      currentSensore = sensoreSelect.value;
+
       var topic = getSubscribeTopic();
       mqttClient.subscribe(topic, { qos: 1 });
+      currentSubTopic = topic;
       currentTopic.textContent = topic;
-      currentClient = clientSelect.value;
       updateDashboard();
     },
     onFailure: function(err) {
@@ -66,11 +78,13 @@ function connectMQTT() {
 }
 
 function disconnectMQTT() {
+  manualDisconnect = true;
   clearTimeout(reconnectTimer);
   if (mqttClient && mqttClient.isConnected()) {
     try { mqttClient.disconnect(); } catch (_) {}
   }
   mqttClient = null;
+  currentSubTopic = null;
   isConnecting = false;
   connectBtn.textContent = 'Connetti';
   connStatus.className = 'status-indicator disconnected';
@@ -89,12 +103,16 @@ function scheduleReconnect() {
 function processMessage(topic, payload) {
   try {
     var data = JSON.parse(payload);
-    var client = topic.split('/')[1] || 'unknown';
     if (!data.timestamp) return;
+
+    var parti = topic.split('/');
+    var osservatorio = parti[0] || DEFAULT_OSSERVATORIO;
+    var sensore = parti[1] || 'sconosciuto';
 
     allData.push({
       timestamp: data.timestamp,
-      client: client,
+      osservatorio: osservatorio,
+      sensore: sensore,
       pms: data.pms || {},
       dht22: data.dht22 || {},
       bme280: data.bme280 || {},
@@ -112,17 +130,19 @@ function processMessage(topic, payload) {
   }
 }
 
-function onClientChange() {
+// Cambio di osservatorio o sensore: riallinea l'iscrizione al topic {osservatorio}/{sensore}/data
+function onSelectionChange() {
   var topic = getSubscribeTopic();
   currentTopic.textContent = topic;
-  currentClient = clientSelect.value;
+  currentOsservatorio = osservatorioSelect.value;
+  currentSensore = sensoreSelect.value;
 
   if (mqttClient && mqttClient.isConnected()) {
-    try {
-      mqttClient.unsubscribe(TOPIC_BASE + '/+/data');
-      mqttClient.unsubscribe(TOPIC_BASE + '/*/data');
-    } catch (_) {}
+    if (currentSubTopic && currentSubTopic !== topic) {
+      try { mqttClient.unsubscribe(currentSubTopic); } catch (_) {}
+    }
     mqttClient.subscribe(topic, { qos: 1 });
+    currentSubTopic = topic;
   }
   updateDashboard();
 }

@@ -1,5 +1,38 @@
 /* ===== MIMOSA - Charts (Chart.js) ===== */
 
+function temaColori() {
+  const s = getComputedStyle(document.documentElement);
+  const v = (n, fb) => (s.getPropertyValue(n) || '').trim() || fb;
+  return {
+    tick: v('--chart-tick', '#5d6f80'),
+    grid: v('--chart-grid', 'rgba(42,63,85,0.15)'),
+    tipBg: v('--chart-tooltip-bg', '#ffffff'),
+    tipText: v('--chart-tooltip-text', '#16232f'),
+    tipBorder: v('--chart-tooltip-border', '#d5dee8')
+  };
+}
+
+const COL = temaColori();
+
+function opzioniBase(yLabel, multi) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    animation: { duration: 300 },
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: !!multi, labels: { color: COL.tick, boxWidth: 12, padding: 8, font: { size: 10 } } },
+      tooltip: {
+        backgroundColor: COL.tipBg, titleColor: COL.tipText, bodyColor: COL.tipText,
+        borderColor: COL.tipBorder, borderWidth: 1
+      }
+    },
+    scales: {
+      x: { ticks: { color: COL.tick, maxTicksLimit: 10, font: { size: 10 } }, grid: { color: COL.grid } },
+      y: { beginAtZero: true, ticks: { color: COL.tick, font: { size: 10 } }, grid: { color: COL.grid }, title: { display: !!yLabel, text: yLabel, color: COL.tick } }
+    }
+  };
+}
+
 function createChart(ctx, label, color, yLabel) {
   return new Chart(ctx, {
     type: 'line',
@@ -9,22 +42,7 @@ function createChart(ctx, label, color, yLabel) {
       borderWidth: 2, pointRadius: 2, pointHoverRadius: 5,
       fill: true, tension: 0.3
     }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 300 },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#1a2a3a', titleColor: '#e0e8f0', bodyColor: '#e0e8f0',
-          borderColor: '#2a3f55', borderWidth: 1,
-          callbacks: { title: function(items) { return items[0].label; } }
-        }
-      },
-      scales: {
-        x: { ticks: { color: '#8899aa', maxTicksLimit: 10, font: { size: 10 } }, grid: { color: '#2a3f5533' } },
-        y: { beginAtZero: true, ticks: { color: '#8899aa', font: { size: 10 } }, grid: { color: '#2a3f5533' }, title: { display: !!yLabel, text: yLabel, color: '#8899aa' } }
-      }
-    }
+    options: opzioniBase(yLabel, false)
   });
 }
 
@@ -32,22 +50,7 @@ function createMultiChart(ctx, datasets, yLabel) {
   return new Chart(ctx, {
     type: 'line',
     data: { labels: [], datasets: datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 300 },
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { labels: { color: '#8899aa', boxWidth: 12, padding: 8, font: { size: 10 } } },
-        tooltip: {
-          backgroundColor: '#1a2a3a', titleColor: '#e0e8f0', bodyColor: '#e0e8f0',
-          borderColor: '#2a3f55', borderWidth: 1
-        }
-      },
-      scales: {
-        x: { ticks: { color: '#8899aa', maxTicksLimit: 10, font: { size: 10 } }, grid: { color: '#2a3f5533' } },
-        y: { beginAtZero: true, ticks: { color: '#8899aa', font: { size: 10 } }, grid: { color: '#2a3f5533' }, title: { display: !!yLabel, text: yLabel, color: '#8899aa' } }
-      }
-    }
+    options: opzioniBase(yLabel, true)
   });
 }
 
@@ -76,3 +79,26 @@ var chartHum = createMultiChart(ctxHum, [
 ], '%');
 
 var chartPress = createChart(ctxPress, 'BME280', '#2ecc71', 'hPa');
+
+// Riallinea i colori dei grafici al tema corrente (invocata dal toggle tema)
+function applicaTemaGrafici() {
+  const c = temaColori();
+  [chartPM, chartTemp, chartHum, chartPress].forEach(ch => {
+    if (!ch) return;
+    const p = ch.options.plugins;
+    p.tooltip.backgroundColor = c.tipBg;
+    p.tooltip.titleColor = c.tipText;
+    p.tooltip.bodyColor = c.tipText;
+    p.tooltip.borderColor = c.tipBorder;
+    if (p.legend && p.legend.labels) p.legend.labels.color = c.tick;
+    ['x', 'y'].forEach(ax => {
+      const a = ch.options.scales[ax];
+      if (a.ticks) a.ticks.color = c.tick;
+      if (a.grid) a.grid.color = c.grid;
+      if (a.title) a.title.color = c.tick;
+    });
+    ch.update();
+  });
+}
+
+window.applicaTemaGrafici = applicaTemaGrafici;

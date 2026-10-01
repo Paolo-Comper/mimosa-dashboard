@@ -24,7 +24,7 @@ import (
 
 //go:embed index.html styles.css
 //go:embed src/*.js
-//go:embed res/marconi.png res/urbino.png
+//go:embed res/LogoMarconi.png res/LogoOsservatorioUrbino.png res/LogoUniversitaDiUrbino.png
 var assets embed.FS
 
 const logo = `
@@ -69,19 +69,39 @@ type Payload struct {
 	GPS       GPS     `json:"gps"`
 }
 
-const helpText = `MIMOSA - Avvio facile (cross-platform)
-======================================
-Avvia un server HTTP, apre il browser e (opzionalmente) pubblica
-dati di test MQTT.
+const helpText = `MIMOSA - Monitoraggio Inquinamento MObile Sistema Aria
+======================================================
 
-Uso:
-  ./mimosa                                # solo server HTTP
-  ./mimosa --test                         # server + 10 msg di test
-  ./mimosa --test rpi-zero-1 5            # client + conteggio custom
-  ./mimosa --dev                          # modalita sviluppo (file da disco)
-  ./mimosa --help                         # questo messaggio
+COSA FA
+  Avvia una dashboard web locale che riceve dati via MQTT e, se richiesto,
+  pubblica dati di test. Apre anche il browser su http://localhost:8080.
 
-Porta: default 8080, sovrascrivi con PORT=9090
+USO BASE
+  ./mimosa                     Avvia la dashboard
+  ./mimosa --dev               Dashboard leggendo HTML/CSS/JS dal disco (sviluppo)
+  ./mimosa --help              Mostra questo aiuto
+
+DATI DI TEST (--test)
+  ./mimosa --test --sensore rpi-zero-1
+  ./mimosa --test --sensore rpi-zero-2 --count 50
+  ./mimosa --test --sensore s1 --osservatorio mimosa --broker broker.hivemq.com --count 10
+
+  --sensore        Sensore (2o livello del topic)          OBBLIGATORIO con --test
+  --osservatorio   Osservatorio (1o livello del topic)     default "mimosa"
+  --broker         Host del broker MQTT                    default "broker.hivemq.com"
+  --count          Numero di messaggi da pubblicare        default: infinito
+
+  Topic pubblicato: {osservatorio}/{sensore}/data
+  Senza --count i messaggi vengono inviati ogni 2 secondi finche' non premi Ctrl+C.
+
+ALTRE OPZIONI
+  PORT=9090 ./mimosa                     Cambia la porta del server (default 8080)
+  ./mimosa --test <sensore> <count>      Vecchia sintassi (ancora supportata)
+
+NOTE
+  La dashboard carica grafici, mappa e MQTT da internet: senza connessione la
+  pagina si apre ma grafici e mappa potrebbero non comparire.
+  Il broker del test e' TCP (porta 1883); la dashboard usa WebSocket (porta 8000).
 `
 
 func echo(msg string) {
@@ -114,7 +134,7 @@ func killPort(port int) {
 	}
 }
 
-func randClientID() string {
+func randMQTTClientID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, 8)
 	for i := range b {
@@ -171,27 +191,38 @@ func arrotonda(v float64, dec int) float64 {
 	return float64(int(v*pow+0.5)) / pow
 }
 
-func pubblicaTest(clientName string, count int) {
-	topic := fmt.Sprintf("mimosa/%s/data", clientName)
+func pubblicaTest(osservatorio, sensore, broker string, count int) {
+	topic := fmt.Sprintf("%s/%s/data", osservatorio, sensore)
+	brokerURL := "tcp://" + broker + ":1883"
 
 	fmt.Println("")
 	fmt.Println("  ============================================")
 	fmt.Println("   MIMOSA - Test MQTT")
-	fmt.Printf("   Broker:    tcp://broker.hivemq.com:1883\n")
-	fmt.Printf("   Client:    %s\n", clientName)
-	fmt.Printf("   Messaggi:  %d\n", count)
-	fmt.Printf("   Intervallo: 2s\n")
-	fmt.Printf("   Topic:     %s\n", topic)
+	fmt.Printf("   Broker:       %s\n", brokerURL)
+	fmt.Printf("   Osservatorio: %s\n", osservatorio)
+	fmt.Printf("   Sensore:      %s\n", sensore)
+	if count > 0 {
+		fmt.Printf("   Messaggi:     %d\n", count)
+	} else {
+		fmt.Printf("   Messaggi:     infinito\n")
+	}
+	fmt.Printf("   Intervallo:   2s\n")
+	fmt.Printf("   Topic:        %s\n", topic)
 	fmt.Println("  ============================================")
 	fmt.Println("")
 
-	for i := 1; i <= count; i++ {
+	for i := 1; count <= 0 || i <= count; i++ {
+		label := fmt.Sprintf("%d", i)
+		if count > 0 {
+			label = fmt.Sprintf("%d/%d", i, count)
+		}
+
 		msgData := generaMessaggio(i)
 		payload, _ := json.Marshal(msgData)
 
 		opts := mqtt.NewClientOptions()
-		opts.AddBroker("tcp://broker.hivemq.com:1883")
-		opts.SetClientID(randClientID())
+		opts.AddBroker(brokerURL)
+		opts.SetClientID(randMQTTClientID())
 		opts.SetConnectTimeout(10 * time.Second)
 		opts.SetKeepAlive(30 * time.Second)
 		opts.SetPingTimeout(5 * time.Second)
@@ -199,24 +230,24 @@ func pubblicaTest(clientName string, count int) {
 		client := mqtt.NewClient(opts)
 		token := client.Connect()
 		if !token.WaitTimeout(10 * time.Second) {
-			fmt.Printf("  [%d/%d] Connessione fallita, salto...\n", i, count)
+			fmt.Printf("  [%s] Connessione fallita, riprovo tra 2s...\n", label)
+			time.Sleep(2 * time.Second)
 			continue
 		}
 		if token.Error() != nil {
-			fmt.Printf("  [%d/%d] Connessione fallita (%s), salto...\n", i, count, token.Error())
+			fmt.Printf("  [%s] Connessione fallita (%s), riprovo tra 2s...\n", label, token.Error())
+			time.Sleep(2 * time.Second)
 			continue
 		}
 
 		t := client.Publish(topic, 0, false, payload)
 		t.WaitTimeout(5 * time.Second)
 
-		fmt.Printf("  [%d/%d] Pubblicato su %s\n", i, count, topic)
+		fmt.Printf("  [%s] Pubblicato su %s\n", label, topic)
 
 		client.Disconnect(250)
 
-		if i < count {
-			time.Sleep(2 * time.Second)
-		}
+		time.Sleep(2 * time.Second)
 	}
 
 	fmt.Println("")
@@ -235,11 +266,62 @@ func main() {
 	testFlag := flag.Bool("test", false, "Pubblica dati di test MQTT")
 	devFlag := flag.Bool("dev", false, "Modalita sviluppo (legge i file da disco)")
 	helpFlag := flag.Bool("help", false, "Mostra aiuto")
+	osservatorioFlag := flag.String("osservatorio", "mimosa", "Osservatorio: primo livello del topic MQTT")
+	sensoreFlag := flag.String("sensore", "", "Sensore: secondo livello del topic MQTT (obbligatorio con --test)")
+	brokerFlag := flag.String("broker", "broker.hivemq.com", "Host del broker MQTT")
+	countFlag := flag.Int("count", 0, "Numero di messaggi di test (0 o assente = infinito)")
+	flag.Usage = func() { fmt.Print(helpText) }
 	flag.Parse()
 
 	if *helpFlag {
 		fmt.Print(helpText)
 		return
+	}
+
+	// Quali opzioni ha impostato l'utente (per distinguerle dai default)
+	sensoreImpostato, countImpostato := false, false
+	flag.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "sensore":
+			sensoreImpostato = true
+		case "count":
+			countImpostato = true
+		}
+	})
+
+	// Compatibilita' con la vecchia sintassi: --test <sensore> <count>
+	args := flag.Args()
+	if len(args) > 0 && !sensoreImpostato {
+		*sensoreFlag = args[0]
+	}
+	if len(args) > 1 && !countImpostato {
+		if c, err := strconv.Atoi(args[1]); err == nil {
+			*countFlag = c
+		}
+	}
+
+	// ── Validazione ─────────────────────────────────────────────
+	if *osservatorioFlag == "" {
+		*osservatorioFlag = "mimosa"
+	}
+	if *testFlag && *sensoreFlag == "" {
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "  Errore: --sensore e' obbligatorio con --test.")
+		fmt.Fprintln(os.Stderr, "  Esempio: ./mimosa --test --sensore rpi-zero-1 [--osservatorio mimosa] [--broker host] [--count N]")
+		fmt.Fprintln(os.Stderr, "")
+		os.Exit(1)
+	}
+	if strings.Contains(*osservatorioFlag, "/") || strings.Contains(*sensoreFlag, "/") {
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "  Errore: osservatorio e sensore non possono contenere '/'.")
+		fmt.Fprintln(os.Stderr, "")
+		os.Exit(1)
+	}
+	if *countFlag < 0 {
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "  Errore: --count deve essere un numero maggiore o uguale a 0.")
+		fmt.Fprintln(os.Stderr, "")
+		os.Exit(1)
 	}
 
 	portStr := os.Getenv("PORT")
@@ -331,24 +413,16 @@ func main() {
 
 	// Test MQTT (se richiesto) — parte DOPO che il server e' su
 	if *testFlag {
-		args := flag.Args()
-		clientName := "rpi-zero-1"
-		count := 10
-		if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-			clientName = args[0]
+		if *countFlag > 0 {
+			echo(fmt.Sprintf("Pubblico %d messaggi per %s/%s...", *countFlag, *osservatorioFlag, *sensoreFlag))
+		} else {
+			echo(fmt.Sprintf("Pubblico messaggi in continuo per %s/%s...", *osservatorioFlag, *sensoreFlag))
 		}
-		if len(args) > 1 && !strings.HasPrefix(args[1], "-") {
-			if c, err := strconv.Atoi(args[1]); err == nil {
-				count = c
-			}
-		}
-
-		echo(fmt.Sprintf("Pubblico %d messaggi per '%s'...", count, clientName))
 		echo("Ctrl+C per interrompere.")
 		fmt.Println("")
 
 		// Test in goroutine — non blocca il server HTTP
-		go pubblicaTest(clientName, count)
+		go pubblicaTest(*osservatorioFlag, *sensoreFlag, *brokerFlag, *countFlag)
 	}
 
 	// Apri browser

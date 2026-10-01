@@ -1,10 +1,10 @@
 <div align="center">
-  <img src="res/marconi.png" alt="MIMOSA" height="80">
+  <img src="res/LogoMarconi.png" alt="MIMOSA" height="80">
   <br><br>
   <h1>MIMOSA</h1>
   <p><strong>Monitoraggio Inquinamento MObile Sistema Aria</strong></p>
   <p>
-    Dashboard web per la qualita dell'aria in tempo reale<br>
+    Dashboard web per la qualità dell'aria in tempo reale<br>
     Riceve dati via MQTT da sensori MIMOSA su Raspberry Pi
   </p>
   <p>
@@ -16,6 +16,8 @@
   </p>
 </div>
 
+> **In una frase:** scarichi un file, lo apri, si apre una pagina web, premi **Connetti** e vedi i dati del sensore in tempo reale.
+
 ---
 
 ## Anteprima
@@ -26,115 +28,142 @@
 
 ---
 
-## Caratteristiche
+## 1. Cosa serve (requisiti)
 
-- **MQTT nativo** -- si connette al broker in tempo reale
-- **Grafici live** -- PM1, PM2.5, PM10, temperatura, umidita, pressione
-- **Mappa GPS** -- ultima posizione rilevata, tracking in tempo reale
-- **Tabella dati** -- cronologia con filtro per client
-- **Esportazione** -- CSV / JSON con un click
-- **Portatile** -- singolo eseguibile, nessuna installazione
-- **Cross-platform** -- Linux, Windows, macOS
+- Un PC con **Windows, macOS o Linux**.
+- Un **browser moderno** (Chrome, Edge, Firefox o Safari).
+- Una **connessione a internet**: grafici, mappa e MQTT si caricano da internet.
+  Senza internet la pagina si apre, ma grafici e mappa potrebbero non comparire.
+- *(solo se compili dal codice sorgente)* **Go 1.26 o superiore**.
 
----
-
-## Download rapido
-
-Scarica l'ultima versione dalle [release](https://github.com/Paolo-Comper/mimosa-dashboard/releases):
-
-| Piattaforma       | File                       |
-| ----------------- | -------------------------- |
-| Linux x86_64      | `mimosa-linux-amd64`       |
-| Windows x86_64    | `mimosa-windows-amd64.exe` |
-| macOS Intel       | `mimosa-darwin-amd64`      |
-| macOS ARM (M1/M2) | `mimosa-darwin-arm64`      |
-
-L'eseguibile contiene **tutto** (HTML, JS, CSS, immagini). Zero dipendenze.
+Non serve installare nulla: MIMOSA è un **singolo eseguibile** che contiene già
+pagina web, stile, script e immagini.
 
 ---
 
-## Compilazione
+## 2. Download e avvio in 3 passi
 
-Clona e compila con Go:
+### Passo 1 — Scarica il file giusto
 
+Dalla pagina [**Releases**](https://github.com/Paolo-Comper/mimosa-dashboard/releases):
+
+| Il tuo computer                       | File da scaricare          |
+| ------------------------------------- | -------------------------- |
+| Windows (Intel/AMD, 64 bit)           | `mimosa-windows-amd64.exe` |
+| Linux (Intel/AMD, 64 bit)             | `mimosa-linux-amd64`       |
+| Mac con processore **Intel**          | `mimosa-darwin-amd64`      |
+| Mac con processore **Apple (M1/M2/M3)** | `mimosa-darwin-arm64`    |
+
+> Non sai quale Mac hai? Menu  → **Informazioni su questo Mac**: se vedi "Chip Apple" scarica `arm64`, se vedi "Intel" scarica `amd64`.
+
+### Passo 2 — Avvialo
+
+**Windows**
+1. Rinomina il file scaricato in `mimosa.exe` (facoltativo ma comodo).
+2. Doppio click.
+3. Se appare l'avviso di Windows SmartScreen: **Ulteriori informazioni** → **Esegui comunque**.
+
+**macOS**
+1. Apri il Terminale nella cartella del file e digita:
+   ```bash
+   chmod +x mimosa-darwin-arm64      # oppure mimosa-darwin-amd64
+   ./mimosa-darwin-arm64
+   ```
+2. Se macOS blocca l'app: tasto destro sul file → **Apri** → **Apri**, oppure:
+   ```bash
+   xattr -d com.apple.quarantine mimosa-darwin-arm64
+   ```
+
+**Linux**
 ```bash
-git clone https://github.com/Paolo-Comper/mimosa-dashboard.git
-cd mimosa-dashboard
-go build -o mimosa .
+chmod +x mimosa-linux-amd64
+./mimosa-linux-amd64
 ```
 
-Risultato: un singolo file `mimosa` (o `mimosa.exe` su Windows).
+### Passo 3 — Usa la dashboard
+
+Il browser si apre da solo su **http://localhost:8080** (se non succede, aprirlo a mano).
+
+1. **Osservatorio**: lascia `mimosa` (o premi **+** per aggiungerne uno).
+2. **Sensore**: scegli il tuo sensore, oppure `Tutti i sensori`.
+3. Premi **Connetti**.
+
+I dati compaiono nella tabella, nei grafici e sulla mappa.
+
+> Se non arriva nulla, controlla che il sensore pubblichi sul topic
+> `{osservatorio}/{sensore}/data` (es. `mimosa/rpi-zero-1/data`).
+> Per una prova immediata senza sensore vedi il [punto 4](#4-non-ho-un-sensore-dati-di-test).
+
+Per fermare MIMOSA: torna al Terminale/finestra nera e premi **Ctrl + C**.
 
 ---
 
-## Utilizzo
+## 3. La schermata in breve
 
-### Avvio rapido
+- **Valori correnti**: PM1, PM2.5, PM10, temperatura, umidità, pressione, GPS.
+- **Grafici**: particolato, temperatura, umidità, pressione.
+- **Mappa**: ultima posizione GPS ricevuta.
+- **Tabella**: storico dei dati, filtrabile per osservatorio e sensore.
+- **🌙 Notte / ☀️ Giorno**: cambia tema. Il tema **predefinito è quello chiaro** e la scelta viene ricordata.
+- **📥 Esporta**: scegli CSV e/o JSON e scaricali anche insieme.
+- **🧹 Cancella esportati**: elimina solo i dati già esportati.
+- **🗑️ Cancella Dati**: svuota tutto lo storico.
 
-```bash
-./mimosa
-```
-
-Apri `http://localhost:8080`, seleziona un client RPI e clicca **Connetti**.
-
-### Dati di test
-
-```bash
-./mimosa --test                     # 10 messaggi
-./mimosa --test rpi-zero-2 50       # nome + conteggio custom
-```
-
-Il server HTTP resta attivo durante i test.
-
-### Porta personalizzata
-
-```bash
-PORT=9090 ./mimosa
-```
-
-### Modalità sviluppo
-
-Legge HTML/CSS/JS dal disco (modifichi e ricarichi il browser senza ricompilare):
-
-```bash
-./mimosa --dev
-```
-
-### Aiuto
-
-```bash
-./mimosa --help
-```
+I dati sono salvati nel browser (**localStorage**), quindi restano anche se ricarichi la pagina.
 
 ---
 
-## Windows
+## 4. Non ho un sensore: dati di test
 
-### Doppio click
+MIMOSA può pubblicare da sé dei dati di prova (simili a quelli di un sensore reale):
 
-Scarica `mimosa-windows-amd64.exe`, rinomina in `mimosa.exe` ed esegui.
+```bash
+# Pubblica in continuo (ogni 2 secondi) finché non premi Ctrl+C
+./mimosa --test --sensore rpi-zero-1
 
-### PowerShell
+# Pubblica 50 messaggi e poi si ferma
+./mimosa --test --sensore rpi-zero-2 --count 50
 
-```powershell
-.\mimosa.exe
+# Parametri completi
+./mimosa --test --sensore rpi-zero-1 --osservatorio mimosa \
+           --broker broker.hivemq.com --count 20
 ```
 
-### Compilare da sorgente
+Mentre i messaggi vengono pubblicati, apri la dashboard e premi **Connetti**.
 
-```powershell
-cd C:\percorso\mimosa
-go build -o mimosa.exe .
-.\mimosa.exe
-```
+| Opzione          | Obbligatoria?              | Default                 |
+| ---------------- | -------------------------- | ----------------------- |
+| `--sensore`      | **Sì**, con `--test`       | —                       |
+| `--osservatorio` | no                         | `mimosa`                |
+| `--broker`       | no                         | `broker.hivemq.com`     |
+| `--count`        | no                         | **infinito** (Ctrl+C)   |
 
-> Il firewall potrebbe chiedere permesso per la rete. Accetta.
+Il topic pubblicato è `{osservatorio}/{sensore}/data`.
+
+> Valgono ancora le vecchie sintassi `./mimosa --test rpi-zero-1 5`
+> (sensore e numero di messaggi in posizione).
 
 ---
 
-## Formato dati MQTT
+## 5. Comandi rapidi (cheat sheet)
 
-Topic: `mimosa/<nome-client>/data`
+| Comando                                                          | Cosa fa                                        |
+| ---------------------------------------------------------------- | ---------------------------------------------- |
+| `./mimosa`                                                       | Avvia la dashboard                             |
+| `./mimosa --dev`                                                 | Avvia leggendo i file da disco (sviluppo)      |
+| `./mimosa --help`                                                | Mostra l'aiuto                                 |
+| `./mimosa --test --sensore NOME`                                 | Pubblica dati di test in continuo              |
+| `./mimosa --test --sensore NOME --count 10`                      | Pubblica 10 messaggi di test                   |
+| `PORT=9090 ./mimosa`                                             | Usa la porta 9090 invece di 8080               |
+
+> Su Windows sostituisci `./mimosa` con `mimosa.exe` e `PORT=9090 ./mimosa` con
+> `set PORT=9090 && mimosa.exe` (Prompt dei comandi) oppure `$env:PORT=9090; .\mimosa.exe` (PowerShell).
+
+---
+
+## 6. Formato dati MQTT
+
+**Topic:** `{osservatorio}/{sensore}/data` — esempio `mimosa/rpi-zero-1/data`
 
 ```json
 {
@@ -146,21 +175,73 @@ Topic: `mimosa/<nome-client>/data`
 }
 ```
 
-### Collegare un RPI
+### Collegare un sensore reale (es. Raspberry Pi)
 
-1. L'RPI pubblica su `mimosa/<nome>/data`
-2. Apri la dashboard, seleziona `<nome>`, clicca **Connetti**
-
-Doppio click sul menu client per inserire un nome custom.
+1. Il sensore pubblica su `{osservatorio}/{sensore}/data`
+   (es. `mimosa/rpi-zero-1/data`).
+2. Apri la dashboard, seleziona **Osservatorio** e **Sensore** e premi **Connetti**.
+3. Usa il pulsante **+** accanto ai menu (o doppio click sul menu Sensore) per
+   aggiungere osservatori/sensori personalizzati: restano memorizzati nel browser.
 
 ---
 
-## Esportazione dati
+## 7. Esportazione dati
 
-| Formato  | Uso                         |
+Il pulsante **📥 Esporta** apre un menu in cui scegli uno o più formati e premi
+**⬇️ Scarica selezionati**. Se selezioni sia CSV che JSON, i file vengono
+scaricati **insieme e sugli stessi dati** (stesso snapshot).
+
+| Formato  | Uso tipico                  |
 | -------- | --------------------------- |
 | **CSV**  | Excel, LibreOffice, analisi |
 | **JSON** | Elaborazioni programmatiche |
 
-I dati sono salvati automaticamente nel **localStorage** del browser.
+I record esportati vengono marcati come **esportati** (contatore "Esportati" e
+spunta verde in tabella):
 
+- **🧹 Cancella esportati** elimina solo i dati già esportati e lascia intatti
+  quelli arrivati nel frattempo.
+- **🗑️ Cancella Dati** svuota invece tutto lo storico.
+
+---
+
+## 8. Compilare dal codice sorgente
+
+Serve **Go 1.26+**.
+
+```bash
+git clone https://github.com/Paolo-Comper/mimosa-dashboard.git
+cd mimosa-dashboard
+go build -o mimosa .
+./mimosa
+```
+
+Per creare i file delle release per tutte le piattaforme:
+
+```bash
+mkdir -p dist
+CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/mimosa-linux-amd64 .
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/mimosa-windows-amd64.exe .
+CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/mimosa-darwin-amd64 .
+CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o dist/mimosa-darwin-arm64 .
+```
+
+---
+
+## 9. Problemi comuni
+
+| Problema | Soluzione |
+| -------- | --------- |
+| La pagina si apre ma **grafici e mappa non compaiono** | Serve internet: grafici, mappa e MQTT sono caricati da CDN online. |
+| **Il browser non si apre da solo** | Vai a `http://localhost:8080` a mano. |
+| **"Porta 8080 occupata"** | MIMOSA libera la porta da sola; se persiste usa un'altra porta: `PORT=9090 ./mimosa`. |
+| **Non arrivano dati** | Controlla di aver premuto **Connetti** e che il topic sia `{osservatorio}/{sensore}/data`. |
+| **Windows: il firewall chiede il permesso** | Accetta (serve per la porta locale). |
+| **La mappa è grigia / non si carica** | Serve internet; attendi qualche secondo dal primo avvio. |
+| **Dati vecchi con nomi strani** | I vecchi record vengono aggiornati automaticamente al primo avvio. Usa **🗑️ Cancella Dati** per ripartire pulito. |
+
+---
+
+## Licenza
+
+[MIT](LICENSE)
