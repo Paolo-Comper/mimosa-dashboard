@@ -21,7 +21,7 @@ function updateDashboard() {
       $(id).textContent = '\u2014';
     });
     $('cv-gps-sats').textContent = '';
-    tableBody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:#5d6f80;">Nessun dato ricevuto</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:20px;color:#5d6f80;">Nessun dato ricevuto</td></tr>';
     updateCharts([]);
     lastUpdate.textContent = '\u2014';
     return;
@@ -37,9 +37,9 @@ function updateDashboard() {
   $('cv-pm1').textContent   = pms.pm1 != null ? pms.pm1 : '\u2014';
   $('cv-pm25').textContent  = pms.pm25 != null ? pms.pm25 : '\u2014';
   $('cv-pm10').textContent  = pms.pm10 != null ? pms.pm10 : '\u2014';
-  $('cv-temp').textContent  = fmtTemp(bme.temperature ?? dht.temperature ?? pms.temperature);
-  $('cv-hum').textContent   = fmt(bme.humidity ?? dht.humidity ?? pms.humidity, 0);
-  $('cv-press').textContent = bme.pressure ? fmt(bme.pressure / 100, 1) : '\u2014';
+  $('cv-temp').textContent  = fmtTemp(valoreConPrecedenza(latest, 'temperature', SORGENTI_TEMP));
+  $('cv-hum').textContent   = fmt(valoreConPrecedenza(latest, 'humidity', SORGENTI_HUM), 0);
+  $('cv-press').textContent = fmt(pressioneHpa(latest), 1);
 
   if (gps.valid && gps.lat != null) {
     $('cv-gps').textContent = Number(gps.lat).toFixed(4) + ', ' + Number(gps.lon).toFixed(4);
@@ -59,7 +59,7 @@ function updateDashboard() {
   // Table (last 50, reversed)
   var rows = filtered.slice(-50).reverse();
   tableBody.innerHTML = rows.map(function(d) {
-    var p = d.pms || {}, dh = d.dht22 || {}, b = d.bme280 || {}, g = d.gps || {};
+    var p = d.pms || {}, dh = d.dht22 || {}, b = d.bme280 || {}, v = d.virtual || {}, g = d.gps || {};
     return '<tr' + (d.exported ? ' class="exported"' : '') + '>'
       + '<td>' + fmtTime(d.timestamp) + '</td>'
       + '<td>' + (d.osservatorio || '\u2014') + '</td>'
@@ -70,8 +70,9 @@ function updateDashboard() {
       + '<td>' + fmtTemp(p.temperature) + '</td>'
       + '<td>' + fmtTemp(dh.temperature) + '</td>'
       + '<td>' + fmtTemp(b.temperature) + '</td>'
-      + '<td>' + fmt(b.humidity ?? dh.humidity ?? p.humidity, 0) + '</td>'
-      + '<td>' + (b.pressure ? fmt(b.pressure / 100, 1) : '\u2014') + '</td>'
+      + '<td>' + fmtTemp(v.temperature) + '</td>'
+      + '<td>' + fmt(valoreConPrecedenza(d, 'humidity', SORGENTI_HUM), 0) + '</td>'
+      + '<td>' + fmt(pressioneHpa(d), 1) + '</td>'
       + '<td>' + (g.valid && g.lat != null ? Number(g.lat).toFixed(4) : '\u2014') + '</td>'
       + '<td>' + (g.valid && g.lon != null ? Number(g.lon).toFixed(4) : '\u2014') + '</td>'
       + '</tr>';
@@ -94,17 +95,23 @@ function updateCharts(data) {
   chartTemp.data.datasets[0].data = last50.map(function(d) { var p = d.pms; return p ? p.temperature : null; });
   chartTemp.data.datasets[1].data = last50.map(function(d) { var p = d.dht22; return p ? p.temperature : null; });
   chartTemp.data.datasets[2].data = last50.map(function(d) { var p = d.bme280; return p ? p.temperature : null; });
+  chartTemp.data.datasets[3].data = last50.map(function(d) { var p = d.virtual; return p ? p.temperature : null; });
   chartTemp.update('none');
 
   chartHum.data.labels = labels;
   chartHum.data.datasets[0].data = last50.map(function(d) { var p = d.pms; return p ? p.humidity : null; });
   chartHum.data.datasets[1].data = last50.map(function(d) { var p = d.dht22; return p ? p.humidity : null; });
   chartHum.data.datasets[2].data = last50.map(function(d) { var p = d.bme280; return p ? p.humidity : null; });
+  chartHum.data.datasets[3].data = last50.map(function(d) { var p = d.virtual; return p ? p.humidity : null; });
   chartHum.update('none');
 
   chartPress.data.labels = labels;
   chartPress.data.datasets[0].data = last50.map(function(d) {
     var p = d.bme280;
+    return p && p.pressure ? p.pressure / 100 : null;
+  });
+  chartPress.data.datasets[1].data = last50.map(function(d) {
+    var p = d.virtual;
     return p && p.pressure ? p.pressure / 100 : null;
   });
   chartPress.update('none');

@@ -53,6 +53,13 @@ type BME280 struct {
 	Pressure    float64 `json:"pressure"`
 }
 
+// Virtual e' il valore calcolato/fuso: ha la massima precedenza nella dashboard
+type Virtual struct {
+	Temperature float64 `json:"temperature"`
+	Humidity    float64 `json:"humidity"`
+	Pressure    float64 `json:"pressure"`
+}
+
 type GPS struct {
 	Lat   float64 `json:"lat"`
 	Lon   float64 `json:"lon"`
@@ -66,6 +73,7 @@ type Payload struct {
 	PMS       PMS     `json:"pms"`
 	DHT22     DHT22   `json:"dht22"`
 	BME280    BME280  `json:"bme280"`
+	Virtual   Virtual `json:"virtual"`
 	GPS       GPS     `json:"gps"`
 }
 
@@ -155,23 +163,31 @@ var basePayload = Payload{
 func generaMessaggio(idx int) Payload {
 	p := basePayload
 	t := float64(time.Now().UnixMilli()) / 1000.0
+	pms := PMS{
+		PM1:         max(0, p.PMS.PM1+rand.Intn(18)-3),
+		PM25:        max(0, p.PMS.PM25+rand.Intn(25)-5),
+		PM10:        max(0, p.PMS.PM10+rand.Intn(30)-5),
+		Temperature: arrotonda(p.PMS.Temperature+rand.Float64()-0.5, 1),
+		Humidity:    arrotonda(p.PMS.Humidity+rand.Float64()*4-2, 1),
+	}
+	dht := DHT22{
+		Temperature: arrotonda(p.DHT22.Temperature+rand.Float64()-0.5, 1),
+		Humidity:    arrotonda(p.DHT22.Humidity+rand.Float64()*4-2, 1),
+	}
+	bme := BME280{
+		Temperature: arrotonda(p.BME280.Temperature+rand.Float64()*0.6-0.3, 2),
+		Humidity:    arrotonda(p.BME280.Humidity+rand.Float64()*2-1, 2),
+		Pressure:    arrotonda(p.BME280.Pressure+rand.Float64()*4-2, 2),
+	}
 	return Payload{
 		Timestamp: t,
-		PMS: PMS{
-			PM1:         max(0, p.PMS.PM1+rand.Intn(18)-3),
-			PM25:        max(0, p.PMS.PM25+rand.Intn(25)-5),
-			PM10:        max(0, p.PMS.PM10+rand.Intn(30)-5),
-			Temperature: arrotonda(p.PMS.Temperature+rand.Float64()-0.5, 1),
-			Humidity:    arrotonda(p.PMS.Humidity+rand.Float64()*4-2, 1),
-		},
-		DHT22: DHT22{
-			Temperature: arrotonda(p.DHT22.Temperature+rand.Float64()-0.5, 1),
-			Humidity:    arrotonda(p.DHT22.Humidity+rand.Float64()*4-2, 1),
-		},
-		BME280: BME280{
-			Temperature: arrotonda(p.BME280.Temperature+rand.Float64()*0.6-0.3, 2),
-			Humidity:    arrotonda(p.BME280.Humidity+rand.Float64()*2-1, 2),
-			Pressure:    arrotonda(p.BME280.Pressure+rand.Float64()*4-2, 2),
+		PMS:       pms,
+		DHT22:     dht,
+		BME280:    bme,
+		Virtual: Virtual{
+			Temperature: arrotonda((pms.Temperature+dht.Temperature+bme.Temperature)/3, 1),
+			Humidity:    arrotonda((pms.Humidity+dht.Humidity+bme.Humidity)/3, 1),
+			Pressure:    bme.Pressure,
 		},
 		GPS: GPS{
 			Lat:   arrotonda(p.GPS.Lat+float64(idx)*0.00001, 6),

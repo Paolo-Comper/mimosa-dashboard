@@ -63,3 +63,26 @@ function datiFiltrati() {
       (currentSensore === ALL || d.sensore === currentSensore);
   });
 }
+
+// Precedenza delle sorgenti per temperatura e umidità: il valore "virtual"
+// (calcolato/fuso) prevale su ogni sensore fisico quando è presente.
+const SORGENTI_TEMP = ['virtual', 'bme280', 'dht22', 'pms'];
+const SORGENTI_HUM  = ['virtual', 'bme280', 'dht22', 'pms'];
+// La pressione è misurata solo dal barometro BME280: virtuale e bme280
+const SORGENTI_PRESS = ['virtual', 'bme280'];
+
+// Primo valore non nullo del campo tra le sorgenti, in ordine di precedenza
+function valoreConPrecedenza(d, campo, sorgenti) {
+  for (var i = 0; i < sorgenti.length; i++) {
+    var s = d && d[sorgenti[i]];
+    if (s && s[campo] != null) return s[campo];
+  }
+  return null;
+}
+
+// Pressione in hPa. I sensori la inviano in Pa (come bme280.pressure), quindi
+// si divide per 100; virtual.pressure usa la stessa unità.
+function pressioneHpa(d) {
+  var p = valoreConPrecedenza(d, 'pressure', SORGENTI_PRESS);
+  return p == null ? null : p / 100;
+}

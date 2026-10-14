@@ -116,6 +116,7 @@ function processMessage(topic, payload) {
       pms: data.pms || {},
       dht22: data.dht22 || {},
       bme280: data.bme280 || {},
+      virtual: data.virtual || {},
       gps: data.gps || {}
     });
 

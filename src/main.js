@@ -23,6 +23,11 @@ function publishTestData(sensore, osservatorio) {
       humidity: Math.random() * 20 + 50,
       pressure: Math.random() * 20 + 1000
     },
+    virtual: {
+      temperature: Math.random() * 6 + 20,
+      humidity: Math.random() * 20 + 48,
+      pressure: Math.random() * 20 + 1000
+    },
     gps: {
       lat: 43.7238 + Math.random() * 0.002,
       lon: 12.6376 + Math.random() * 0.002,

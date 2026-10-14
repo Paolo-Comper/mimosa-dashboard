@@ -171,9 +171,46 @@ Il topic pubblicato è `{osservatorio}/{sensore}/data`.
   "pms":       { "pm1": 4, "pm25": 10, "pm10": 15, "temperature": 9.1, "humidity": 63.3 },
   "dht22":     { "temperature": 4.9, "humidity": 81.1 },
   "bme280":    { "temperature": 4.3, "humidity": 74.2, "pressure": 999.57 },
+  "virtual":   { "temperature": 4.6, "humidity": 76.5, "pressure": 999.62 },
   "gps":       { "lat": 43.72386, "lon": 12.63765, "alt": 472.0, "sats": 7, "valid": true }
 }
 ```
+
+### Il ramo `virtual`
+
+`virtual` è un valore **calcolato/fuso** (es. media o correzione dei sensori
+fisici). È **facoltativo** e ha la **massima precedenza** su temperatura,
+umidità e pressione: quando è presente prevale sugli altri rami.
+
+L'ordine di precedenza usato dalla dashboard è:
+
+```
+temperatura / umidità:   virtual  >  bme280  >  dht22  >  pms
+pressione:               virtual  >  bme280
+```
+
+> `virtual.pressure` usa la **stessa unità di `bme280.pressure`** (Pa): la
+> dashboard la converte in hPa dividendo per 100, esattamente come per BME280.
+
+- **Valori correnti** e le colonne **Umidità** / **Press.** della tabella
+  mostrano il primo valore disponibile nell'ordine di precedenza (con
+  `virtual` in cima).
+- Nei grafici **Temperatura**, **Umidità** e **Pressione**, `virtual` è
+  tracciato come serie dedicata (linea viola tratteggiata) insieme ai sensori
+  fisici.
+- Se `virtual` non è presente nel messaggio, la dashboard usa normalmente i
+  sensori fisici. Non è obbligatorio inviarlo.
+
+Esempio di messaggio minimo con solo `virtual` e particolato:
+
+```json
+{
+  "timestamp": 1771815991.22558,
+  "pms":     { "pm1": 4, "pm25": 10, "pm10": 15 },
+  "virtual": { "temperature": 4.6, "humidity": 76.5, "pressure": 999.62 }
+}
+```
+
 
 ### Collegare un sensore reale (es. Raspberry Pi)
 

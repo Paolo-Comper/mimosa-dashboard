@@ -33,19 +33,6 @@ function opzioniBase(yLabel, multi) {
   };
 }
 
-function createChart(ctx, label, color, yLabel) {
-  return new Chart(ctx, {
-    type: 'line',
-    data: { labels: [], datasets: [{
-      label: label, data: [],
-      borderColor: color, backgroundColor: color + '22',
-      borderWidth: 2, pointRadius: 2, pointHoverRadius: 5,
-      fill: true, tension: 0.3
-    }] },
-    options: opzioniBase(yLabel, false)
-  });
-}
-
 function createMultiChart(ctx, datasets, yLabel) {
   return new Chart(ctx, {
     type: 'line',
@@ -69,16 +56,21 @@ var chartPM = createMultiChart(ctxPM, [
 var chartTemp = createMultiChart(ctxTemp, [
   { label: 'PMS', data: [], borderColor: '#e74c3c', backgroundColor: '#e74c3c22', borderWidth: 2, pointRadius: 1, fill: true, tension: 0.3 },
   { label: 'DHT22', data: [], borderColor: '#f39c12', backgroundColor: '#f39c1222', borderWidth: 2, pointRadius: 1, fill: true, tension: 0.3 },
-  { label: 'BME280', data: [], borderColor: '#2ecc71', backgroundColor: '#2ecc7122', borderWidth: 2, pointRadius: 1, fill: true, tension: 0.3 }
+  { label: 'BME280', data: [], borderColor: '#2ecc71', backgroundColor: '#2ecc7122', borderWidth: 2, pointRadius: 1, fill: true, tension: 0.3 },
+  { label: 'Virtual', data: [], borderColor: '#8e44ad', backgroundColor: '#8e44ad22', borderWidth: 3, borderDash: [5, 3], pointRadius: 1, fill: false, tension: 0.3 }
 ], '\u00b0C');
 
 var chartHum = createMultiChart(ctxHum, [
   { label: 'PMS', data: [], borderColor: '#5dade2', backgroundColor: '#5dade222', borderWidth: 2, pointRadius: 1, fill: true, tension: 0.3 },
   { label: 'DHT22', data: [], borderColor: '#2ecc71', backgroundColor: '#2ecc7122', borderWidth: 2, pointRadius: 1, fill: true, tension: 0.3 },
-  { label: 'BME280', data: [], borderColor: '#f39c12', backgroundColor: '#f39c1222', borderWidth: 2, pointRadius: 1, fill: true, tension: 0.3 }
+  { label: 'BME280', data: [], borderColor: '#f39c12', backgroundColor: '#f39c1222', borderWidth: 2, pointRadius: 1, fill: true, tension: 0.3 },
+  { label: 'Virtual', data: [], borderColor: '#8e44ad', backgroundColor: '#8e44ad22', borderWidth: 3, borderDash: [5, 3], pointRadius: 1, fill: false, tension: 0.3 }
 ], '%');
 
-var chartPress = createChart(ctxPress, 'BME280', '#2ecc71', 'hPa');
+var chartPress = createMultiChart(ctxPress, [
+  { label: 'BME280', data: [], borderColor: '#2ecc71', backgroundColor: '#2ecc7122', borderWidth: 2, pointRadius: 1, fill: true, tension: 0.3 },
+  { label: 'Virtual', data: [], borderColor: '#8e44ad', backgroundColor: '#8e44ad22', borderWidth: 3, borderDash: [5, 3], pointRadius: 1, fill: false, tension: 0.3 }
+], 'hPa');
 
 // Riallinea i colori dei grafici al tema corrente (invocata dal toggle tema)
 function applicaTemaGrafici() {

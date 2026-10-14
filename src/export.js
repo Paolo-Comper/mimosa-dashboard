@@ -15,7 +15,7 @@ function downloadFile(content, filename, mime) {
 // Copia del record senza i metadati interni (es. flag "exported")
 function recordPulito(d) {
   var c = {};
-  ['timestamp', 'osservatorio', 'sensore', 'pms', 'dht22', 'bme280', 'gps'].forEach(function(k) {
+  ['timestamp', 'osservatorio', 'sensore', 'pms', 'dht22', 'bme280', 'virtual', 'gps'].forEach(function(k) {
     if (d[k] !== undefined) c[k] = d[k];
   });
   return c;
@@ -36,16 +36,18 @@ function csvField(v) {
 }
 
 function buildCSV(records) {
-  var header = 'timestamp,data_ora,osservatorio,sensore,pm1,pm25,pm10,temp_pms,hum_pms,temp_dht22,hum_dht22,temp_bme280,hum_bme280,pressure_hpa,lat,lon,alt,sats,gps_valid';
+  var header = 'timestamp,data_ora,osservatorio,sensore,pm1,pm25,pm10,temp_pms,hum_pms,temp_dht22,hum_dht22,temp_bme280,hum_bme280,temp_virtual,hum_virtual,pressure_hpa,pressure_virtual_hpa,lat,lon,alt,sats,gps_valid';
   var rows = records.map(function(d) {
-    var p = d.pms || {}, dh = d.dht22 || {}, b = d.bme280 || {}, g = d.gps || {};
+    var p = d.pms || {}, dh = d.dht22 || {}, b = d.bme280 || {}, v = d.virtual || {}, g = d.gps || {};
     return [
       d.timestamp, csvField(fmtTime(d.timestamp)), csvField(d.osservatorio || ''), csvField(d.sensore || ''),
       p.pm1 ?? '', p.pm25 ?? '', p.pm10 ?? '',
       p.temperature ?? '', p.humidity ?? '',
       dh.temperature ?? '', dh.humidity ?? '',
       b.temperature ?? '', b.humidity ?? '',
+      v.temperature ?? '', v.humidity ?? '',
       b.pressure ? (b.pressure / 100).toFixed(1) : '',
+      v.pressure ? (v.pressure / 100).toFixed(1) : '',
       g.lat ?? '', g.lon ?? '', g.alt ?? '', g.sats ?? '',
       g.valid ?? ''
     ].join(',');
