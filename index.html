@@ -24,7 +24,7 @@
 <!-- MapLibre GL -->
 <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.min.js"></script>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 
@@ -65,7 +65,10 @@
       </div>
       <div class="control-group">
         <label for="brokerInput">Broker MQTT:</label>
-        <input type="text" id="brokerInput" value="broker.hivemq.com" readonly>
+        <input type="text" id="brokerInput" value="broker.hivemq.com"
+               placeholder="es. broker.hivemq.com o test.mosquitto.org:8081"
+               title="Host, host:porta oppure URL websocket (ws:// o wss://). Per i broker pubblici noti la porta WebSocket è automatica; altrimenti specifica la porta (es. host:9001)."
+               autocomplete="off" spellcheck="false">
       </div>
       <div class="control-group">
         <label>Stato:</label>
@@ -204,15 +207,15 @@
   </section>
 </main>
 
-<script src="src/state.js"></script>
-<script src="src/storage.js"></script>
-<script src="src/charts.js"></script>
-<script src="src/mqtt.js"></script>
-<script src="src/export.js"></script>
-<script src="src/dashboard.js"></script>
-<script src="src/main.js"></script>
-<script src="src/mappa.js"></script>
-<script src="src/theme.js"></script>
+<script src="src/state.js?v=3"></script>
+<script src="src/storage.js?v=3"></script>
+<script src="src/charts.js?v=3"></script>
+<script src="src/mqtt.js?v=3"></script>
+<script src="src/export.js?v=3"></script>
+<script src="src/dashboard.js?v=3"></script>
+<script src="src/main.js?v=3"></script>
+<script src="src/mappa.js?v=3"></script>
+<script src="src/theme.js?v=3"></script>
 </body>
 </html>
 

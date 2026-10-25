@@ -46,6 +46,13 @@ function saveList(key, arr) {
   try { localStorage.setItem(key, JSON.stringify(arr)); } catch (_) {}
 }
 
+function loadBroker() {
+  try { return localStorage.getItem(STORAGE_BROKER_KEY) || ''; } catch (_) { return ''; }
+}
+function saveBroker(value) {
+  try { localStorage.setItem(STORAGE_BROKER_KEY, value); } catch (_) {}
+}
+
 function loadSensori() { return loadList(STORAGE_SENSORS_KEY, STORAGE_DEVICES_KEY); }
 function saveSensori(list) { saveList(STORAGE_SENSORS_KEY, list); }
 function loadOsservatori() { return loadList(STORAGE_OSSERVATORI_KEY); }

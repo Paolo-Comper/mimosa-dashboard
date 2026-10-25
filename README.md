@@ -86,7 +86,13 @@ Il browser si apre da solo su **http://localhost:8080** (se non succede, aprirlo
 
 1. **Osservatorio**: lascia `mimosa` (o premi **+** per aggiungerne uno).
 2. **Sensore**: scegli il tuo sensore, oppure `Tutti i sensori`.
-3. Premi **Connetti**.
+3. **Broker MQTT**: il campo è modificabile; accetta `host`, `host:porta`,
+   `host:porta/percorso` oppure un URL `ws://` / `wss://`. Il valore viene
+   ricordato nel browser. Se cambi broker mentre sei connesso, premi di nuovo
+   **Connetti**. Per i broker pubblici più comuni la porta WebSocket è
+   automatica: HiveMQ `8000`/`8884`, `test.mosquitto.org` `8080`/`8081`,
+   EMQX `8083`/`8084`.
+4. Premi **Connetti**.
 
 I dati compaiono nella tabella, nei grafici e sulla mappa.
 
@@ -273,6 +279,7 @@ CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o d
 | **Il browser non si apre da solo** | Vai a `http://localhost:8080` a mano. |
 | **"Porta 8080 occupata"** | MIMOSA libera la porta da sola; se persiste usa un'altra porta: `PORT=9090 ./mimosa`. |
 | **Non arrivano dati** | Controlla di aver premuto **Connetti** e che il topic sia `{osservatorio}/{sensore}/data`. |
+| **`AMQJS0007E Socket error:undefined`** | Il browser non riesce ad aprire il WebSocket. Verifica host e porta: la dashboard usa **MQTT over WebSocket**, non MQTT TCP. La porta `1883` (o `8883`) non funziona nel browser: usa la porta WebSocket del broker (es. `8000`, `8083`, `8084`, `9001`) o un URL `wss://...`. Per `test.mosquitto.org` usa `8080` (ws) o `wss://test.mosquitto.org:8081/mqtt`. Controlla anche firewall/proxy. |
 | **Windows: il firewall chiede il permesso** | Accetta (serve per la porta locale). |
 | **La mappa è grigia / non si carica** | Serve internet; attendi qualche secondo dal primo avvio. |
 | **Dati vecchi con nomi strani** | I vecchi record vengono aggiornati automaticamente al primo avvio. Usa **🗑️ Cancella Dati** per ripartire pulito. |

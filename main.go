@@ -276,6 +276,17 @@ type logWriter struct{}
 
 func (logWriter) Write(p []byte) (int, error) { return len(p), nil }
 
+// La dashboard viene servita da un binario che cambia nel tempo: senza questi
+// header il browser puo' continuare a usare JS/CSS in cache dopo un aggiornamento.
+func noCache(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // ── MAIN ────────────────────────────────────────────────────
 
 func main() {
@@ -393,7 +404,7 @@ func main() {
 	}
 
 	server := &http.Server{
-		Handler:  fileServer,
+		Handler:  noCache(fileServer),
 		ErrorLog: log.New(logWriter{}, "", 0),
 	}
 

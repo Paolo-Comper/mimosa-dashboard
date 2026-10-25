@@ -55,6 +55,9 @@ loadData();
 populateOsservatorioSelect();
 populateSensoreSelect();
 
+var savedBroker = loadBroker();
+if (savedBroker) brokerInput.value = savedBroker;
+
 currentOsservatorio = osservatorioSelect.value;
 currentSensore = sensoreSelect.value;
 
@@ -62,6 +65,17 @@ currentSensore = sensoreSelect.value;
 connectBtn.addEventListener('click', connectMQTT);
 osservatorioSelect.addEventListener('change', onSelectionChange);
 sensoreSelect.addEventListener('change', onSelectionChange);
+
+brokerInput.addEventListener('change', function() {
+  var value = brokerInput.value.trim();
+  brokerInput.value = value;
+  saveBroker(value);
+  if (mqttClient && mqttClient.isConnected()) {
+    disconnectMQTT();
+    connStatus.className = 'status-indicator disconnected';
+    connStatus.textContent = 'Broker modificato: riconnetti';
+  }
+});
 
 document.getElementById('exportBtn').addEventListener('click', function(e) {
   e.stopPropagation();
