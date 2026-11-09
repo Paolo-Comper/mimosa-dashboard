@@ -108,7 +108,7 @@ Per fermare MIMOSA: torna al Terminale/finestra nera e premi **Ctrl + C**.
 
 - **Valori correnti**: PM1, PM2.5, PM10, temperatura, umidità, pressione, GPS.
 - **Grafici**: particolato, temperatura, umidità, pressione.
-- **Mappa**: ultima posizione GPS ricevuta.
+- **Mappa**: ultima posizione GPS (presa da `virtual_gps`): 🟡 giallo = GPS hardware, 🟢 verde = posizione di rete. Si aggiorna solo quando cambiano le coordinate.
 - **Tabella**: storico dei dati, filtrabile per osservatorio e sensore.
 - **🌙 Notte / ☀️ Giorno**: cambia tema. Il tema **predefinito è quello chiaro** e la scelta viene ricordata.
 - **📥 Esporta**: scegli CSV e/o JSON e scaricali anche insieme.
@@ -171,6 +171,11 @@ Il topic pubblicato è `{osservatorio}/{sensore}/data`.
 
 **Topic:** `{osservatorio}/{sensore}/data` — esempio `mimosa/rpi-zero-1/data`
 
+> L'osservatorio può contenere più livelli e anche iniziare con `/` (es.
+> `/uniurb/aserpieri/test/marconi0/esp32-d0ac78/data`): la dashboard prende
+> come sensore l'ultimo livello prima di `data` e come osservatorio tutto il
+> resto.
+
 ```json
 {
   "timestamp": 1771815991.22558,
@@ -195,8 +200,9 @@ temperatura / umidità:   virtual  >  bme280  >  dht22  >  pms
 pressione:               virtual  >  bme280
 ```
 
-> `virtual.pressure` usa la **stessa unità di `bme280.pressure`** (Pa): la
-> dashboard la converte in hPa dividendo per 100, esattamente come per BME280.
+> La pressione può essere inviata sia in **hPa** (~1000, come negli esempi)
+> sia in **Pa** (~100000): la dashboard riconosce l'unità dalla grandezza del
+> valore e mostra sempre hPa, sia per `bme280` che per `virtual`.
 
 - **Valori correnti** e le colonne **Umidità** / **Press.** della tabella
   mostrano il primo valore disponibile nell'ordine di precedenza (con
@@ -206,6 +212,38 @@ pressione:               virtual  >  bme280
   fisici.
 - Se `virtual` non è presente nel messaggio, la dashboard usa normalmente i
   sensori fisici. Non è obbligatorio inviarlo.
+
+### La posizione GPS: `virtual_gps` e `gps`
+
+I firmware nuovi inviano la posizione "fusa" nel ramo **`virtual_gps`**, che ha
+la precedenza; il ramo `gps` resta supportato per i firmware vecchi.
+
+```json
+{
+  "virtual_gps": {
+    "lat": 45.4642, "lon": 9.18998, "alt": 200.0,
+    "valid": true, "source": "network", "sats": null,
+    "GPS_HW_POS": 1, "accuracy_m": 100000.0,
+    "datetime_utc": "2026-11-07T23:39:17Z", "timestamp": 1794094757
+  },
+  "gps_network": { "lat": 45.4642, "lon": 9.18998, "alt": 200.0, "source": "ip", "accuracy_m": 100000.0 },
+  "gps": { "lat": null, "lon": null, "valid": false }
+}
+```
+
+Sulla mappa viene proiettata la posizione di `virtual_gps`, con questo colore:
+
+| `GPS_HW_POS`     | Pallino sulla mappa        |
+| ---------------- | -------------------------- |
+| `1`              | 🟡 giallo (GPS hardware)   |
+| `0`              | 🟢 verde (posizione di rete) |
+| `null` / assente | nessun pallino             |
+
+Se non arrivano nuovi dati per **20 secondi**, il pallino viene tolto dalla
+mappa: la posizione non è più considerata aggiornata.
+
+La scheda GPS, le colonne Lat/Lon della tabella e l'esportazione usano la stessa
+posizione (con sorgente e accuratezza in metri/km).
 
 Esempio di messaggio minimo con solo `virtual` e particolato:
 
@@ -269,6 +307,12 @@ CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o d
 CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o dist/mimosa-darwin-arm64 .
 ```
 
+Test della logica (senza dipendenze, serve Node):
+
+```bash
+node tests/logica.test.js
+```
+
 ---
 
 ## 9. Problemi comuni
@@ -279,10 +323,11 @@ CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o d
 | **Il browser non si apre da solo** | Vai a `http://localhost:8080` a mano. |
 | **"Porta 8080 occupata"** | MIMOSA libera la porta da sola; se persiste usa un'altra porta: `PORT=9090 ./mimosa`. |
 | **Non arrivano dati** | Controlla di aver premuto **Connetti** e che il topic sia `{osservatorio}/{sensore}/data`. |
+| **Connesso ma "Dati ricevuti: 0"** | Il topic ricevuto non corrisponde a osservatorio/sensore selezionati: controlla il topic mostrato nella barra. Sono supportati anche topic con più livelli e con `/` iniziale (es. `/uniurb/.../data`). |
 | **`AMQJS0007E Socket error:undefined`** | Il browser non riesce ad aprire il WebSocket. Verifica host e porta: la dashboard usa **MQTT over WebSocket**, non MQTT TCP. La porta `1883` (o `8883`) non funziona nel browser: usa la porta WebSocket del broker (es. `8000`, `8083`, `8084`, `9001`) o un URL `wss://...`. Per `test.mosquitto.org` usa `8080` (ws) o `wss://test.mosquitto.org:8081/mqtt`. Controlla anche firewall/proxy. |
 | **Windows: il firewall chiede il permesso** | Accetta (serve per la porta locale). |
 | **La mappa è grigia / non si carica** | Serve internet; attendi qualche secondo dal primo avvio. |
-| **Dati vecchi con nomi strani** | I vecchi record vengono aggiornati automaticamente al primo avvio. Usa **🗑️ Cancella Dati** per ripartire pulito. |
+| **Dati vecchi con nomi strani** | Con il fix del parsing del topic lo storico salvato prima viene ignorato (nuova chiave di storage). Usa **🗑️ Cancella Dati** per ripartire pulito. |
 
 ---
 

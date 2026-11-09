@@ -4,13 +4,18 @@ Riferimento: email del prof. Andrea Cesarini dell'8/11/2026
 (`Un piccolo problema: interfaccia LINUX non funzionante! :)))`), con allegati
 lo screenshot della dashboard e il nuovo logo Marconi.
 
-Stato: **pianificazione**. In questo commit sono state fatte solo due cose:
+Stato: **implementato in locale** (solo commit locali, nessun push). Riepilogo:
 
 - sostituito il logo in `res/LogoMarconi.png` con quello allegato alla mail;
-- aggiunto questo file di piano.
+- fix del parsing del topic (slash iniziale e più livelli);
+- pressione normalizzata hPa/Pa in card, grafici, tabella ed export;
+- mappa basata su `virtual_gps`, colore `GPS_HW_POS` (giallo/verde/nessuno) e
+  rimozione del pallino dopo 20 s senza dati;
+- acronimo **"Misuriamo Insieme l'atMOSferA"**;
+- README aggiornato e test della logica in `tests/logica.test.js`.
 
-Nessuna correzione al codice è ancora stata applicata e **non è stato fatto
-nessun push** (solo commit locale).
+Restano da fare solo la verifica end-to-end con broker reale e la nuova
+release (build + upload dei binari), da fare quando si decide di pubblicare.
 
 ---
 
@@ -275,3 +280,4 @@ File: `src/mappa.js`.
 - Fase 5–6 (acronimo, ottimizzazione mappa): ~30 min
 - Fase 7 (README, test, build, release): ~45 min
 - Totale: ~3–4 h, verifica inclusa.
+
