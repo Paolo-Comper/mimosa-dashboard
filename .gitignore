@@ -3,3 +3,6 @@ mimosa
 mimosa.exe
 *.log
 mimosa-*
+
+# Build output e artefatti di rilascio (non versionati)
+dist/
