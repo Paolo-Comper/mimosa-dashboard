@@ -15,6 +15,11 @@ const KEEP_ALIVE = 60;
 const RECONNECT_DELAY = 5000;
 const ALL = '+';
 
+// Se il sensore non invia nuovi dati per questo tempo, la posizione sulla
+// mappa non è più considerata valida (il pallino viene tolto).
+const GPS_STALE_MS = 20000;
+let ultimoArrivoDati = 0;
+
 // ---- Global state ----
 let allData = [];
 let mqttClient = null;
@@ -50,6 +55,12 @@ function fmtTimeShort(ts) {
   return new Date(ts * 1000).toLocaleTimeString('it-IT', {
     hour: '2-digit', minute: '2-digit', second: '2-digit'
   });
+}
+// Distanza leggibile per l'accuratezza GPS (es. 100000 m -> "100 km").
+function fmtDistanza(m) {
+  if (m == null || !isFinite(Number(m))) return '\u2014';
+  var n = Number(m);
+  return n >= 1000 ? Math.round(n / 1000) + ' km' : Math.round(n) + ' m';
 }
 
 // ---- Topic helpers ----
@@ -96,4 +107,41 @@ function normalizzaPressione(p) {
 // Pressione in hPa con la precedenza virtual > bme280.
 function pressioneHpa(d) {
   return normalizzaPressione(valoreConPrecedenza(d, 'pressure', SORGENTI_PRESS));
+}
+
+// Posizione GPS normalizzata. Il firmware nuovo manda la posizione "fusa" in
+// virtual_gps (con GPS_HW_POS che dice se viene dal GPS hardware o dalla rete),
+// quello vecchio la manda solo in gps. virtual_gps ha la precedenza.
+function posizioneGPS(d) {
+  if (!d) return null;
+
+  var v = d.virtual_gps;
+  if (v) {
+    if (v.valid === false || v.lat == null || v.lon == null) return null;
+    return {
+      lat: Number(v.lat),
+      lon: Number(v.lon),
+      alt: v.alt != null ? Number(v.alt) : null,
+      accuracy: v.accuracy_m != null ? Number(v.accuracy_m) : null,
+      sats: v.sats != null ? v.sats : null,
+      source: v.source || null,
+      hwPos: v.GPS_HW_POS !== undefined ? v.GPS_HW_POS : null,
+      legacy: false
+    };
+  }
+
+  var g = d.gps;
+  if (g && g.valid && g.lat != null && g.lon != null) {
+    return {
+      lat: Number(g.lat),
+      lon: Number(g.lon),
+      alt: g.alt != null ? Number(g.alt) : null,
+      accuracy: null,
+      sats: g.sats != null ? g.sats : null,
+      source: 'gps',
+      hwPos: 0,
+      legacy: true
+    };
+  }
+  return null;
 }

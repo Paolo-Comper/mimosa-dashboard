@@ -208,6 +208,7 @@ function processMessage(topic, payload) {
     if (!data.timestamp) return;
 
     var nomi = parseTopic(topic);
+    ultimoArrivoDati = Date.now();
 
     allData.push({
       timestamp: data.timestamp,

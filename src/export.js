@@ -15,7 +15,7 @@ function downloadFile(content, filename, mime) {
 // Copia del record senza i metadati interni (es. flag "exported")
 function recordPulito(d) {
   var c = {};
-  ['timestamp', 'osservatorio', 'sensore', 'pms', 'dht22', 'bme280', 'virtual', 'gps'].forEach(function(k) {
+  ['timestamp', 'topic', 'osservatorio', 'sensore', 'client_id', 'pms', 'dht22', 'bme280', 'virtual', 'gps', 'virtual_gps', 'gps_network'].forEach(function(k) {
     if (d[k] !== undefined) c[k] = d[k];
   });
   return c;
@@ -36,9 +36,10 @@ function csvField(v) {
 }
 
 function buildCSV(records) {
-  var header = 'timestamp,data_ora,osservatorio,sensore,pm1,pm25,pm10,temp_pms,hum_pms,temp_dht22,hum_dht22,temp_bme280,hum_bme280,temp_virtual,hum_virtual,pressure_hpa,pressure_virtual_hpa,lat,lon,alt,sats,gps_valid';
+  var header = 'timestamp,data_ora,osservatorio,sensore,pm1,pm25,pm10,temp_pms,hum_pms,temp_dht22,hum_dht22,temp_bme280,hum_bme280,temp_virtual,hum_virtual,pressure_hpa,pressure_virtual_hpa,lat,lon,alt,sats,gps_valid,gps_source,gps_accuracy_m,gps_hw_pos';
   var rows = records.map(function(d) {
-    var p = d.pms || {}, dh = d.dht22 || {}, b = d.bme280 || {}, v = d.virtual || {}, g = d.gps || {};
+    var p = d.pms || {}, dh = d.dht22 || {}, b = d.bme280 || {}, v = d.virtual || {};
+    var pos = posizioneGPS(d);
     return [
       d.timestamp, csvField(fmtTime(d.timestamp)), csvField(d.osservatorio || ''), csvField(d.sensore || ''),
       p.pm1 ?? '', p.pm25 ?? '', p.pm10 ?? '',
@@ -48,8 +49,13 @@ function buildCSV(records) {
       v.temperature ?? '', v.humidity ?? '',
       b.pressure != null ? normalizzaPressione(b.pressure).toFixed(1) : '',
       v.pressure != null ? normalizzaPressione(v.pressure).toFixed(1) : '',
-      g.lat ?? '', g.lon ?? '', g.alt ?? '', g.sats ?? '',
-      g.valid ?? ''
+      pos ? pos.lat : '', pos ? pos.lon : '',
+      pos && pos.alt != null ? pos.alt : '',
+      pos && pos.sats != null ? pos.sats : '',
+      pos ? true : false,
+      pos && pos.source != null ? pos.source : '',
+      pos && pos.accuracy != null ? pos.accuracy : '',
+      pos && pos.hwPos != null ? pos.hwPos : ''
     ].join(',');
   }).join('\n');
   return header + '\n' + rows;

@@ -29,9 +29,6 @@ function updateDashboard() {
 
   var latest = filtered[filtered.length - 1];
   var pms = latest.pms || {};
-  var dht = latest.dht22 || {};
-  var bme = latest.bme280 || {};
-  var gps = latest.gps || {};
 
   // Current values
   $('cv-pm1').textContent   = pms.pm1 != null ? pms.pm1 : '\u2014';
@@ -41,9 +38,18 @@ function updateDashboard() {
   $('cv-hum').textContent   = fmt(valoreConPrecedenza(latest, 'humidity', SORGENTI_HUM), 0);
   $('cv-press').textContent = fmt(pressioneHpa(latest), 1);
 
-  if (gps.valid && gps.lat != null) {
-    $('cv-gps').textContent = Number(gps.lat).toFixed(4) + ', ' + Number(gps.lon).toFixed(4);
-    $('cv-gps-sats').textContent = 'sats ' + (gps.sats ?? '--');
+  // La posizione viene da virtual_gps (nuovo firmware) o, in fallback, da gps.
+  var pos = posizioneGPS(latest);
+  if (pos) {
+    $('cv-gps').textContent = pos.lat.toFixed(4) + ', ' + pos.lon.toFixed(4);
+    var dettaglio;
+    if (pos.legacy) {
+      dettaglio = pos.sats != null ? 'sats ' + pos.sats : '';
+    } else {
+      dettaglio = pos.hwPos === 1 ? 'GPS HW' : 'rete';
+      if (pos.accuracy != null) dettaglio += ' \u00b1 ' + fmtDistanza(pos.accuracy);
+    }
+    $('cv-gps-sats').textContent = dettaglio;
   } else {
     $('cv-gps').textContent = '\u2014';
     $('cv-gps-sats').textContent = '';
@@ -59,7 +65,8 @@ function updateDashboard() {
   // Table (last 50, reversed)
   var rows = filtered.slice(-50).reverse();
   tableBody.innerHTML = rows.map(function(d) {
-    var p = d.pms || {}, dh = d.dht22 || {}, b = d.bme280 || {}, v = d.virtual || {}, g = d.gps || {};
+    var p = d.pms || {}, dh = d.dht22 || {}, b = d.bme280 || {}, v = d.virtual || {};
+    var pos = posizioneGPS(d);
     return '<tr' + (d.exported ? ' class="exported"' : '') + '>'
       + '<td>' + fmtTime(d.timestamp) + '</td>'
       + '<td>' + (d.osservatorio || '\u2014') + '</td>'
@@ -73,8 +80,8 @@ function updateDashboard() {
       + '<td>' + fmtTemp(v.temperature) + '</td>'
       + '<td>' + fmt(valoreConPrecedenza(d, 'humidity', SORGENTI_HUM), 0) + '</td>'
       + '<td>' + fmt(pressioneHpa(d), 1) + '</td>'
-      + '<td>' + (g.valid && g.lat != null ? Number(g.lat).toFixed(4) : '\u2014') + '</td>'
-      + '<td>' + (g.valid && g.lon != null ? Number(g.lon).toFixed(4) : '\u2014') + '</td>'
+      + '<td>' + (pos ? pos.lat.toFixed(4) : '\u2014') + '</td>'
+      + '<td>' + (pos ? pos.lon.toFixed(4) : '\u2014') + '</td>'
       + '</tr>';
   }).join('');
 

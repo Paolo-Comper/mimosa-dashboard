@@ -36,14 +36,15 @@ function aggiungiLivelliMappa() {
       : { type: 'FeatureCollection', features: [] }
   });
 
-  // Singolo punto verde (ultima posizione)
+  // Pallino: GIALLO = posizione dal GPS hardware (GPS_HW_POS = 1),
+  // VERDE = posizione dalla rete (GPS_HW_POS = 0).
   map.addLayer({
     id: 'ultima-posizione',
     type: 'circle',
     source: 'posizione',
     paint: {
       'circle-radius': 10,
-      'circle-color': '#2ecc71',
+      'circle-color': ['match', ['get', 'gps_hw_pos'], 1, '#f1c40f', 0, '#2ecc71', '#95a5a6'],
       'circle-stroke-width': 3,
       'circle-stroke-color': '#ffffff',
       'circle-opacity': 0.95
@@ -85,13 +86,17 @@ function applicaTemaMappa() {
 
 function mostraPopupMappa(e) {
   const p = e.features[0].properties;
+  const fonte = p.source === 'network' ? 'rete (IP)'
+    : (p.source === 'gps' ? 'GPS hardware' : (p.source || '\u2014'));
+  const accuratezza = p.accuracy != null ? ' \u00b1 ' + fmtDistanza(p.accuracy) : '';
   new maplibregl.Popup()
     .setLngLat(e.lngLat)
     .setHTML(`
       <div style="font-family: sans-serif; font-size: 13px; line-height: 1.5;">
         <strong style="color:#2f7fd6;">${p.ora}</strong><br>
         📍 ${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)}<br>
-        🏔️ ${p.alt ? Number(p.alt).toFixed(1) + ' m' : '—'} &nbsp;🛰️ ${p.sats || '—'} sat<br>
+        🛰️ ${fonte}${accuratezza}<br>
+        🏔️ ${p.alt != null ? Number(p.alt).toFixed(1) + ' m' : '—'} &nbsp;🛰️ ${p.sats ?? '—'} sat<br>
         🌫️ PM₁: ${p.pm1 ?? '—'} · PM₂.₅: ${p.pm25 ?? '—'} · PM₁₀: ${p.pm10 ?? '—'}<br>
         🌡️ ${p.temp ?? '—'}°C · 💧 ${p.hum ?? '—'}% · 🔽 ${p.press ?? '—'} hPa
       </div>
@@ -99,40 +104,76 @@ function mostraPopupMappa(e) {
     .addTo(window.mimosaMap);
 }
 
+// Toglie il pallino dalla mappa (nessuna posizione da proiettare).
+function svuotaMappa() {
+  window.ultimaFeatureMappa = null;
+  const map = window.mimosaMap;
+  if (!map) return;
+  const source = map.getSource('posizione');
+  if (source) source.setData({ type: 'FeatureCollection', features: [] });
+}
+
 function aggiornaMappa(dati) {
   const map = window.mimosaMap;
   if (!map || !map.isStyleLoaded()) return;
 
-  // Prende solo l'ultimo dato con GPS valido
-  const ultimo = dati
-    .filter(d => d.gps && d.gps.valid && d.gps.lat !== null && d.gps.lon !== null)
-    .pop();
+  // Nessun dato recente: la posizione non è più attendibile (GPS_STALE_MS).
+  if (!ultimoArrivoDati || Date.now() - ultimoArrivoDati > GPS_STALE_MS) {
+    svuotaMappa();
+    return;
+  }
 
-  if (!ultimo) return;
+  const ultimo = dati[dati.length - 1];
+  const pos = posizioneGPS(ultimo);
+  if (!pos) {
+    svuotaMappa();
+    return;
+  }
 
-  const g = ultimo.gps;
+  // GPS_HW_POS: 1 = GPS hardware (giallo), 0 = rete (verde),
+  // null/assente = nessun pallino.
+  const hwPos = pos.legacy ? 0 : pos.hwPos;
+  if (!pos.legacy && hwPos !== 1 && hwPos !== 0) {
+    svuotaMappa();
+    return;
+  }
+
+  const press = pressioneHpa(ultimo);
   const feature = {
     type: 'Feature',
     properties: {
       ora: new Date(ultimo.timestamp * 1000).toLocaleString('it-IT'),
-      lat: g.lat,
-      lon: g.lon,
-      alt: g.alt,
-      sats: g.sats,
+      lat: pos.lat,
+      lon: pos.lon,
+      alt: pos.alt,
+      sats: pos.sats,
+      accuracy: pos.accuracy,
+      source: pos.source || (pos.legacy ? 'gps' : null),
+      gps_hw_pos: hwPos,
       pm1: ultimo.pms?.pm1,
       pm25: ultimo.pms?.pm25,
       pm10: ultimo.pms?.pm10,
-      temp: ultimo.bme280?.temperature ?? ultimo.dht22?.temperature ?? ultimo.pms?.temperature,
-      hum: ultimo.bme280?.humidity ?? ultimo.dht22?.humidity ?? ultimo.pms?.humidity,
-      press: ultimo.bme280?.pressure ? (ultimo.bme280.pressure / 100).toFixed(1) : null
+      temp: valoreConPrecedenza(ultimo, 'temperature', SORGENTI_TEMP),
+      hum: valoreConPrecedenza(ultimo, 'humidity', SORGENTI_HUM),
+      press: press != null ? press.toFixed(1) : null
     },
     geometry: {
       type: 'Point',
-      coordinates: [g.lon, g.lat]
+      coordinates: [pos.lon, pos.lat]
     }
   };
 
+  const prec = window.ultimaFeatureMappa;
+  const stesseCoord = !!prec &&
+    Math.abs(prec.geometry.coordinates[0] - pos.lon) < 1e-6 &&
+    Math.abs(prec.geometry.coordinates[1] - pos.lat) < 1e-6;
+  const stessoColore = !!prec && prec.properties.gps_hw_pos === hwPos;
+
   window.ultimaFeatureMappa = feature;
+
+  // Aggiorna la mappa (e ricentra) solo se cambiano le coordinate o il colore
+  // del pallino: evita di "rigenerare" la mappa a ogni campione.
+  if (stesseCoord && stessoColore) return;
 
   const source = map.getSource('posizione');
   if (!source) return;
@@ -142,9 +183,20 @@ function aggiornaMappa(dati) {
     features: [feature]
   });
 
-  // Centra sull'ultima posizione (ogni aggiornamento)
-  map.flyTo({ center: [g.lon, g.lat], zoom: 15, duration: 1000 });
+  if (!stesseCoord) {
+    map.flyTo({ center: [pos.lon, pos.lat], zoom: 15, duration: 1000 });
+  }
 }
+
+// Controllo periodico: se il sensore smette di inviare dati, dopo
+// GPS_STALE_MS il pallino sparisce dalla mappa.
+function controllaScadenzaGPS() {
+  if (!window.ultimaFeatureMappa) return;
+  if (!ultimoArrivoDati || Date.now() - ultimoArrivoDati > GPS_STALE_MS) {
+    svuotaMappa();
+  }
+}
+setInterval(controllaScadenzaGPS, 1000);
 
 // Esponi le funzioni globalmente
 window.initMimosaMap = initMimosaMap;
