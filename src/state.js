@@ -84,9 +84,16 @@ function valoreConPrecedenza(d, campo, sorgenti) {
   return null;
 }
 
-// Pressione in hPa. I sensori la inviano in Pa (come bme280.pressure), quindi
-// si divide per 100; virtual.pressure usa la stessa unità.
+// Pressione normalizzata in hPa. I firmware possono inviarla in Pa (~100000)
+// oppure già in hPa (~1000): si sceglie l'unità in base alla grandezza.
+function normalizzaPressione(p) {
+  if (p == null) return null;
+  var n = Number(p);
+  if (!isFinite(n)) return null;
+  return Math.abs(n) > 5000 ? n / 100 : n;
+}
+
+// Pressione in hPa con la precedenza virtual > bme280.
 function pressioneHpa(d) {
-  var p = valoreConPrecedenza(d, 'pressure', SORGENTI_PRESS);
-  return p == null ? null : p / 100;
+  return normalizzaPressione(valoreConPrecedenza(d, 'pressure', SORGENTI_PRESS));
 }

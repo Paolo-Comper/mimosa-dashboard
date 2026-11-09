@@ -46,8 +46,8 @@ function buildCSV(records) {
       dh.temperature ?? '', dh.humidity ?? '',
       b.temperature ?? '', b.humidity ?? '',
       v.temperature ?? '', v.humidity ?? '',
-      b.pressure ? (b.pressure / 100).toFixed(1) : '',
-      v.pressure ? (v.pressure / 100).toFixed(1) : '',
+      b.pressure != null ? normalizzaPressione(b.pressure).toFixed(1) : '',
+      v.pressure != null ? normalizzaPressione(v.pressure).toFixed(1) : '',
       g.lat ?? '', g.lon ?? '', g.alt ?? '', g.sats ?? '',
       g.valid ?? ''
     ].join(',');

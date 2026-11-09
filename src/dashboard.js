@@ -108,11 +108,11 @@ function updateCharts(data) {
   chartPress.data.labels = labels;
   chartPress.data.datasets[0].data = last50.map(function(d) {
     var p = d.bme280;
-    return p && p.pressure ? p.pressure / 100 : null;
+    return p && p.pressure != null ? normalizzaPressione(p.pressure) : null;
   });
   chartPress.data.datasets[1].data = last50.map(function(d) {
     var p = d.virtual;
-    return p && p.pressure ? p.pressure / 100 : null;
+    return p && p.pressure != null ? normalizzaPressione(p.pressure) : null;
   });
   chartPress.update('none');
 }
