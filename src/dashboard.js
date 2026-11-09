@@ -46,7 +46,8 @@ function updateDashboard() {
     if (pos.legacy) {
       dettaglio = pos.sats != null ? 'sats ' + pos.sats : '';
     } else {
-      dettaglio = pos.hwPos === 1 ? 'GPS HW' : 'rete';
+      dettaglio = pos.hwPos === 1 ? 'GPS HW'
+        : (pos.hwPos === 0 ? 'rete' : 'sorgente n/d');
       if (pos.accuracy != null) dettaglio += ' \u00b1 ' + fmtDistanza(pos.accuracy);
     }
     $('cv-gps-sats').textContent = dettaglio;
