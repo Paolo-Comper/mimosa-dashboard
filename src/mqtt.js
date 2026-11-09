@@ -186,24 +186,42 @@ function scheduleReconnect() {
   }, RECONNECT_DELAY);
 }
 
+// Il topic può avere più livelli e iniziare con '/', come nel caso reale:
+//   /uniurb/aserpieri/test/marconi0/esp32-d0ac78/data
+// L'osservatorio è tutto ciò che precede l'ultimo livello (può contenere '/'),
+// il sensore è l'ultimo livello, il suffisso '/data' viene rimosso.
+function parseTopic(topic) {
+  var t = String(topic || '').replace(/\/data\/?$/, '');
+  var i = t.lastIndexOf('/');
+  if (i < 0) {
+    return { osservatorio: t || DEFAULT_OSSERVATORIO, sensore: 'sconosciuto' };
+  }
+  return {
+    osservatorio: t.slice(0, i) || DEFAULT_OSSERVATORIO,
+    sensore: t.slice(i + 1) || 'sconosciuto'
+  };
+}
+
 function processMessage(topic, payload) {
   try {
     var data = JSON.parse(payload);
     if (!data.timestamp) return;
 
-    var parti = topic.split('/');
-    var osservatorio = parti[0] || DEFAULT_OSSERVATORIO;
-    var sensore = parti[1] || 'sconosciuto';
+    var nomi = parseTopic(topic);
 
     allData.push({
       timestamp: data.timestamp,
-      osservatorio: osservatorio,
-      sensore: sensore,
+      topic: topic,
+      osservatorio: nomi.osservatorio,
+      sensore: nomi.sensore,
+      client_id: data.client_id || null,
       pms: data.pms || {},
       dht22: data.dht22 || {},
       bme280: data.bme280 || {},
       virtual: data.virtual || {},
-      gps: data.gps || {}
+      gps: data.gps || {},
+      virtual_gps: data.virtual_gps || null,
+      gps_network: data.gps_network || null
     });
 
     if (allData.length > MAX_RECORDS) {

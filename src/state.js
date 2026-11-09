@@ -1,5 +1,7 @@
 /* ===== MIMOSA - State & Constants ===== */
-const STORAGE_KEY = 'mimosa_data';
+// v2: i record salvati prima del fix del parsing del topic sono etichettati
+// male (osservatorio/sensore sbagliati), quindi ripartiamo da uno storage pulito.
+const STORAGE_KEY = 'mimosa_data_v2';
 const STORAGE_SENSORS_KEY = 'mimosa_sensori';
 const STORAGE_OSSERVATORI_KEY = 'mimosa_osservatori';
 const STORAGE_DEVICES_KEY = 'mimosa_devices'; // legacy (era l'elenco dei "client")
