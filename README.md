@@ -2,7 +2,7 @@
   <img src="res/LogoMarconi.png" alt="MIMOSA" height="80">
   <br><br>
   <h1>MIMOSA</h1>
-  <p><strong>Monitoraggio Inquinamento MObile Sistema Aria</strong></p>
+  <p><strong>Misuriamo Insieme l'atMOSferA</strong></p>
   <p>
     Dashboard web per la qualità dell'aria in tempo reale<br>
     Riceve dati via MQTT da sensori MIMOSA su Raspberry Pi

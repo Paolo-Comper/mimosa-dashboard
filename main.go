@@ -30,7 +30,7 @@ var assets embed.FS
 const logo = `
   ╔══════════════════════════════════════════╗
   ║         MIMOSA - Air Quality             ║
-  ║         Monitoraggio Aria                ║
+  ║      Misuriamo Insieme l'atMOSferA       ║
   ╚══════════════════════════════════════════╝
 `
 
@@ -77,7 +77,7 @@ type Payload struct {
 	GPS       GPS     `json:"gps"`
 }
 
-const helpText = `MIMOSA - Monitoraggio Inquinamento MObile Sistema Aria
+const helpText = `MIMOSA - Misuriamo Insieme l'atMOSferA
 ======================================================
 
 COSA FA
