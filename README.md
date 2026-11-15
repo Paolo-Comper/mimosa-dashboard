@@ -16,7 +16,7 @@
   </p>
 </div>
 
-> **In una frase:** scarichi un file, lo apri, si apre una pagina web, premi **Connetti** e vedi i dati del sensore in tempo reale.
+> **In una frase:** scarichi un file, lo apri, si apre una pagina web, premi **Connetti** e vedi i dati del sensore in tempo reale. I campioni vengono salvati dal server in un **archivio locale SQLite**, quindi restano disponibili anche dopo aver chiuso il browser.
 
 ---
 
@@ -32,12 +32,15 @@
 
 - Un PC con **Windows, macOS o Linux**.
 - Un **browser moderno** (Chrome, Edge, Firefox o Safari).
-- Una **connessione a internet**: grafici, mappa e MQTT si caricano da internet.
-  Senza internet la pagina si apre, ma grafici e mappa potrebbero non comparire.
+- Una **connessione a internet**: grafici e mappa si caricano da CDN online.
+  Il collegamento al broker MQTT è fatto dal server locale. Senza internet la
+  pagina si apre, ma grafici e mappa potrebbero non comparire.
+- Spazio su disco per il **database dell'archivio** (file `mimosa.db`).
 - *(solo se compili dal codice sorgente)* **Go 1.26 o superiore**.
 
 Non serve installare nulla: MIMOSA è un **singolo eseguibile** che contiene già
-pagina web, stile, script e immagini.
+pagina web, stile, script e immagini. Lo storico dei dati è un normale file
+SQLite creato accanto all'eseguibile.
 
 ---
 
@@ -86,21 +89,22 @@ Il browser si apre da solo su **http://localhost:8080** (se non succede, aprirlo
 
 1. **Osservatorio**: lascia `mimosa` (o premi **+** per aggiungerne uno).
 2. **Sensore**: scegli il tuo sensore, oppure `Tutti i sensori`.
-3. **Broker MQTT**: il campo è modificabile; accetta `host`, `host:porta`,
-   `host:porta/percorso` oppure un URL `ws://` / `wss://`. Il valore viene
-   ricordato nel browser. Se cambi broker mentre sei connesso, premi di nuovo
-   **Connetti**. Per i broker pubblici più comuni la porta WebSocket è
-   automatica: HiveMQ `8000`/`8884`, `test.mosquitto.org` `8080`/`8081`,
-   EMQX `8083`/`8084`.
+3. **Broker MQTT**: host del broker (TCP, porta `1883`) oppure un URL esplicito
+   `tcp://host:porta`, `ssl://host:8883`, `ws://host:porta/percorso`,
+   `wss://host:porta/percorso`. È il **server MIMOSA** a collegarsi al broker,
+   non il browser. Il valore viene ricordato; se lo cambi mentre sei connesso,
+   premi di nuovo **Connetti**.
 4. Premi **Connetti**.
 
-I dati compaiono nella tabella, nei grafici e sulla mappa.
+I dati compaiono nella tabella, nei grafici e sulla mappa, e vengono salvati in
+`mimosa.db` (vedi [punto 10](#10-dove-sono-salvati-i-dati-sqlite)).
 
 > Se non arriva nulla, controlla che il sensore pubblichi sul topic
 > `{osservatorio}/{sensore}/data` (es. `mimosa/rpi-zero-1/data`).
 > Per una prova immediata senza sensore vedi il [punto 4](#4-non-ho-un-sensore-dati-di-test).
 
 Per fermare MIMOSA: torna al Terminale/finestra nera e premi **Ctrl + C**.
+I dati già ricevuti restano nel database.
 
 ---
 
@@ -110,12 +114,16 @@ Per fermare MIMOSA: torna al Terminale/finestra nera e premi **Ctrl + C**.
 - **Grafici**: particolato, temperatura, umidità, pressione.
 - **Mappa**: ultima posizione GPS (presa da `virtual_gps`): 🟡 giallo = posizione da indirizzo di rete, 🟢 verde = posizione da GPS a bordo. Si aggiorna solo quando cambiano le coordinate.
 - **Tabella**: storico dei dati, filtrabile per osservatorio e sensore.
+- **Archivio**: numero di campioni e spazio occupato dal database SQLite.
 - **🌙 Notte / ☀️ Giorno**: cambia tema. Il tema **predefinito è quello chiaro** e la scelta viene ricordata.
-- **📥 Esporta**: scegli CSV e/o JSON e scaricali anche insieme.
-- **🧹 Cancella esportati**: elimina solo i dati già esportati.
+- **📥 Esporta**: scarica **tutto lo storico** della selezione in CSV e/o JSON.
+- **🧹 Cancella esportati**: elimina dal database solo i dati già esportati.
 - **🗑️ Cancella Dati**: svuota tutto lo storico.
 
-I dati sono salvati nel browser (**localStorage**), quindi restano anche se ricarichi la pagina.
+I campioni sono salvati in un **database SQLite** dal server (`mimosa.db`):
+restano anche chiudendo il browser, ricaricando la pagina o cambiando PC (basta
+portarsi dietro il file). Il browser conserva solo le preferenze (broker,
+osservatori, sensori, tema).
 
 ---
 
@@ -136,6 +144,8 @@ MIMOSA può pubblicare da sé dei dati di prova (simili a quelli di un sensore r
 ```
 
 Mentre i messaggi vengono pubblicati, apri la dashboard e premi **Connetti**.
+Il server deve essere collegato allo **stesso broker** usato da `--test`; i dati
+di prova finiscono nello stesso archivio SQLite dei dati reali.
 
 | Opzione          | Obbligatoria?              | Default                 |
 | ---------------- | -------------------------- | ----------------------- |
@@ -160,6 +170,7 @@ Il topic pubblicato è `{osservatorio}/{sensore}/data`.
 | `./mimosa --help`                                                | Mostra l'aiuto                                 |
 | `./mimosa --test --sensore NOME`                                 | Pubblica dati di test in continuo              |
 | `./mimosa --test --sensore NOME --count 10`                      | Pubblica 10 messaggi di test                   |
+| `./mimosa --db archivio.db`                                      | Usa un database SQLite diverso                 |
 | `PORT=9090 ./mimosa`                                             | Usa la porta 9090 invece di 8080               |
 
 > Su Windows sostituisci `./mimosa` con `mimosa.exe` e `PORT=9090 ./mimosa` con
@@ -175,6 +186,10 @@ Il topic pubblicato è `{osservatorio}/{sensore}/data`.
 > `/uniurb/aserpieri/test/marconi0/esp32-d0ac78/data`): la dashboard prende
 > come sensore l'ultimo livello prima di `data` e come osservatorio tutto il
 > resto.
+
+I messaggi ricevuti dal server vengono salvati **così come arrivano** (JSON)
+nella tabella `campioni` del database SQLite; `osservatorio`, `sensore` e
+`timestamp` sono estratti e indicizzati per filtri, conteggi ed export.
 
 ```json
 {
@@ -268,27 +283,35 @@ Esempio di messaggio minimo con solo `virtual` e particolato:
 
 ## 7. Esportazione dati
 
-Il pulsante **📥 Esporta** apre un menu in cui scegli uno o più formati e premi
-**⬇️ Scarica selezionati**. Se selezioni sia CSV che JSON, i file vengono
-scaricati **insieme e sugli stessi dati** (stesso snapshot).
+Il pulsante **📥 Esporta** scarica **tutto lo storico** della selezione corrente
+(osservatorio/sensore), non solo gli ultimi 50 campioni mostrati in tabella.
+Scegli CSV e/o JSON e premi **⬇️ Scarica selezionati**.
+
+I file vengono generati dal server leggendo direttamente SQLite, in streaming:
+non c'è più il limite di 5.000 righe e non serve tenere tutto in memoria.
 
 | Formato  | Uso tipico                  |
 | -------- | --------------------------- |
 | **CSV**  | Excel, LibreOffice, analisi |
 | **JSON** | Elaborazioni programmatiche |
 
-I record esportati vengono marcati come **esportati** (contatore "Esportati" e
-spunta verde in tabella):
+I record scaricati vengono marcati come **esportati** (contatore "Esportati" e
+riga evidenziata in tabella):
 
-- **🧹 Cancella esportati** elimina solo i dati già esportati e lascia intatti
-  quelli arrivati nel frattempo.
+- **🧹 Cancella esportati** elimina dal database solo i dati già esportati e
+  lascia intatti quelli arrivati nel frattempo.
 - **🗑️ Cancella Dati** svuota invece tutto lo storico.
+
+> L'export è anche il modo più semplice per fare un **backup** dei dati:
+> scarica il CSV/JSON prima di cancellare o cambiare computer.
 
 ---
 
 ## 8. Compilare dal codice sorgente
 
-Serve **Go 1.26+**.
+Serve **Go 1.26+**. L'archivio usa SQLite in **puro Go**
+(`modernc.org/sqlite`): non serve CGO e il cross-compile con `CGO_ENABLED=0`
+funziona come prima.
 
 ```bash
 git clone https://github.com/Paolo-Comper/mimosa-dashboard.git
@@ -307,10 +330,11 @@ CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o d
 CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o dist/mimosa-darwin-arm64 .
 ```
 
-Test della logica (senza dipendenze, serve Node):
+Test della logica:
 
 ```bash
-node tests/logica.test.js
+go test ./...                 # backend Go (parsing, DB, export)
+node tests/logica.test.js     # logica della dashboard (Node)
 ```
 
 ---
@@ -319,15 +343,40 @@ node tests/logica.test.js
 
 | Problema | Soluzione |
 | -------- | --------- |
-| La pagina si apre ma **grafici e mappa non compaiono** | Serve internet: grafici, mappa e MQTT sono caricati da CDN online. |
+| La pagina si apre ma **grafici e mappa non compaiono** | Serve internet: grafici e mappa sono caricati da CDN online. |
 | **Il browser non si apre da solo** | Vai a `http://localhost:8080` a mano. |
 | **"Porta 8080 occupata"** | MIMOSA libera la porta da sola; se persiste usa un'altra porta: `PORT=9090 ./mimosa`. |
-| **Non arrivano dati** | Controlla di aver premuto **Connetti** e che il topic sia `{osservatorio}/{sensore}/data`. |
+| **Non arrivano dati** | Premi **Connetti** e controlla broker e topic `{osservatorio}/{sensore}/data`. |
 | **Connesso ma "Dati ricevuti: 0"** | Il topic ricevuto non corrisponde a osservatorio/sensore selezionati: controlla il topic mostrato nella barra. Sono supportati anche topic con più livelli e con `/` iniziale (es. `/uniurb/.../data`). |
-| **`AMQJS0007E Socket error:undefined`** | Il browser non riesce ad aprire il WebSocket. Verifica host e porta: la dashboard usa **MQTT over WebSocket**, non MQTT TCP. La porta `1883` (o `8883`) non funziona nel browser: usa la porta WebSocket del broker (es. `8000`, `8083`, `8084`, `9001`) o un URL `wss://...`. Per `test.mosquitto.org` usa `8080` (ws) o `wss://test.mosquitto.org:8081/mqtt`. Controlla anche firewall/proxy. |
+| **Errore di connessione al broker** | Il server usa MQTT **TCP** (porta `1883`). Se la rete blocca la 1883 usa `ssl://host:8883` (TLS) oppure `ws://host:porta/percorso` / `wss://host:porta/percorso` (WebSocket). Controlla host, porta e firewall. |
 | **Windows: il firewall chiede il permesso** | Accetta (serve per la porta locale). |
 | **La mappa è grigia / non si carica** | Serve internet; attendi qualche secondo dal primo avvio. |
-| **Dati vecchi con nomi strani** | Con il fix del parsing del topic lo storico salvato prima viene ignorato (nuova chiave di storage). Usa **🗑️ Cancella Dati** per ripartire pulito. |
+| **Il database non si apre / "database is locked"** | Assicurati di avere i permessi di scrittura sulla cartella di `mimosa.db` e non avviare due istanze di MIMOSA sullo stesso file. |
+| **Dati vecchi con nomi strani** | I campioni del vecchio storage del browser vengono importati automaticamente una volta al primo avvio; se l'import non riesce viene ritentato al successivo. |
+
+---
+
+## 10. Dove sono salvati i dati (SQLite)
+
+Di default il server crea il database **`mimosa.db`** nella cartella da cui viene
+avviato il binario; si può cambiare con `--db FILE` (es. `./mimosa --db
+archivio-2026.db`). I file `mimosa.db-wal` e `mimosa.db-shm` sono di appoggio e
+appartengono al database.
+
+- **Cosa contiene**: ogni messaggio MQTT ricevuto viene salvato come JSON nella
+  tabella `campioni`, con osservatorio, sensore, timestamp e flag "esportato".
+  Non c'è più il limite di 5.000 campioni: il limite è lo spazio su disco.
+- **Backup**: ferma MIMOSA e copia `mimosa.db` (insieme agli eventuali file
+  `-wal`/`-shm`); in alternativa scarica CSV/JSON dalla dashboard.
+- **Cancellare lo storico**: usa **🗑️ Cancella Dati**, oppure ferma il programma
+  ed elimina `mimosa.db`.
+- **Ripristino**: rimetti il file `mimosa.db` accanto al binario e riavvia.
+- **Migrazione**: se stai arrivando da una versione precedente, i campioni che
+  erano in `localStorage` vengono importati automaticamente al primo avvio.
+- **API locale**: la dashboard usa `http://localhost:8080/api/...`
+  (`/api/status`, `/api/samples`, `/api/stats`, `/api/export`, `/api/import`).
+  Il server è pensato per l'uso locale e non ha autenticazione: non esporlo su
+  una rete non fidata.
 
 ---
 
