@@ -366,8 +366,17 @@ appartengono al database.
 - **Cosa contiene**: ogni messaggio MQTT ricevuto viene salvato come JSON nella
   tabella `campioni`, con osservatorio, sensore, timestamp e flag "esportato".
   Non c'è più il limite di 5.000 campioni: il limite è lo spazio su disco.
-- **Backup**: ferma MIMOSA e copia `mimosa.db` (insieme agli eventuali file
-  `-wal`/`-shm`); in alternativa scarica CSV/JSON dalla dashboard.
+- **Backup**: il file cresce con i dati, quindi conviene salvarlo ogni tanto.
+  Ferma MIMOSA (Ctrl+C) e copia il database:
+  ```bash
+  # Linux / macOS
+  cp mimosa.db mimosa-backup-$(date +%F).db
+  # Windows (Prompt dei comandi)
+  copy mimosa.db mimosa-backup.db
+  ```
+  Se accanto ci sono `mimosa.db-wal` e `mimosa.db-shm`, copiali insieme al
+  database. In alternativa, scarica CSV/JSON dalla dashboard: è un backup
+  completo dei dati ed è leggibile anche senza MIMOSA.
 - **Cancellare lo storico**: usa **🗑️ Cancella Dati**, oppure ferma il programma
   ed elimina `mimosa.db`.
 - **Ripristino**: rimetti il file `mimosa.db` accanto al binario e riavvia.
