@@ -24,7 +24,7 @@ import (
 
 //go:embed index.html styles.css
 //go:embed src/*.js
-//go:embed res/LogoMarconi.png res/LogoOsservatorioUrbino.png res/LogoUniversitaDiUrbino.png
+//go:embed res/LogoMarconi.png res/LogoOsservatorioUrbino.png res/LogoUniversitaDiUrbino.png res/LogoMimosa.png
 var assets embed.FS
 
 const logo = `

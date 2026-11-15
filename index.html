@@ -27,15 +27,13 @@
 <body>
 
 <header>
-  <div class="logo logo-marconi">
-    <img src="res/LogoMarconi.png" alt="ITT Marconi Rovereto">
-  </div>
-  <div class="title">
-    <h1>MIMOSA</h1>
+  <div class="brand">
+    <img class="brand-logo" src="res/LogoMimosa.png" alt="MIMOSA — Stazione di misura">
     <p class="subtitle">Misuriamo Insieme l'atMOSferA</p>
     <button id="themeToggle" class="theme-toggle" type="button">🌙 Notte</button>
   </div>
-  <div class="logo logo-urbino">
+  <div class="partners">
+    <img src="res/LogoMarconi.png" alt="ITT Marconi Rovereto">
     <img src="res/LogoOsservatorioUrbino.png" alt="Osservatorio Urbino">
     <img src="res/LogoUniversitaDiUrbino.png" alt="Università di Urbino">
   </div>
@@ -160,6 +158,7 @@
     <div class="map-legend">
       <span><span class="pallino pallino-rete"></span> Posizione da indirizzo di rete</span>
       <span><span class="pallino pallino-gps"></span> Posizione da GPS a bordo</span>
+      <span class="nota">Il pallino viene rimosso dopo 20 secondi senza nuovi dati.</span>
     </div>
     <div id="map"></div>
   </section>
