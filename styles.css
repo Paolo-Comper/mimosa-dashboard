@@ -285,8 +285,9 @@ header .logo img { height: var(--logo-height); width: auto; display: block; obje
   display: inline-block; width: 10px; height: 10px;
   border-radius: 50%; margin-right: 5px; vertical-align: middle;
 }
-.map-legend .pallino-hw { background: #f1c40f; }
-.map-legend .pallino-rete { background: #2ecc71; }
+/* Giallo = posizione da rete, verde = GPS a bordo (vedi legenda in index.html) */
+.map-legend .pallino-rete { background: #f1c40f; }
+.map-legend .pallino-gps { background: #2ecc71; }
 #map { width: 100%; height: 380px; border-radius: 6px; overflow: hidden; }
 .map-unavailable {
   display: flex; align-items: center; justify-content: center; height: 100%;

@@ -108,7 +108,7 @@ Per fermare MIMOSA: torna al Terminale/finestra nera e premi **Ctrl + C**.
 
 - **Valori correnti**: PM1, PM2.5, PM10, temperatura, umidità, pressione, GPS.
 - **Grafici**: particolato, temperatura, umidità, pressione.
-- **Mappa**: ultima posizione GPS (presa da `virtual_gps`): 🟡 giallo = GPS hardware, 🟢 verde = posizione di rete. Si aggiorna solo quando cambiano le coordinate.
+- **Mappa**: ultima posizione GPS (presa da `virtual_gps`): 🟡 giallo = posizione da indirizzo di rete, 🟢 verde = posizione da GPS a bordo. Si aggiorna solo quando cambiano le coordinate.
 - **Tabella**: storico dei dati, filtrabile per osservatorio e sensore.
 - **🌙 Notte / ☀️ Giorno**: cambia tema. Il tema **predefinito è quello chiaro** e la scelta viene ricordata.
 - **📥 Esporta**: scegli CSV e/o JSON e scaricali anche insieme.
@@ -235,8 +235,8 @@ Sulla mappa viene proiettata la posizione di `virtual_gps`, con questo colore:
 
 | `GPS_HW_POS`     | Pallino sulla mappa        |
 | ---------------- | -------------------------- |
-| `1`              | 🟡 giallo (GPS hardware)   |
-| `0`              | 🟢 verde (posizione di rete) |
+| `1`              | 🟡 giallo (posizione da indirizzo di rete) |
+| `0`              | 🟢 verde (posizione da GPS a bordo) |
 | `null` / assente | nessun pallino             |
 
 Se non arrivano nuovi dati per **20 secondi**, il pallino viene tolto dalla

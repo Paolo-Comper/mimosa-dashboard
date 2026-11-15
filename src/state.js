@@ -47,7 +47,7 @@ function fmt(o, d) { return o == null ? '\u2014' : Number(o).toFixed(d || 1); }
 function fmtTemp(o) { return o == null ? '\u2014' : Number(o).toFixed(1); }
 function fmtTime(ts) {
   return new Date(ts * 1000).toLocaleString('it-IT', {
-    day: '2-digit', month: '2-digit',
+    day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit', second: '2-digit'
   });
 }
@@ -61,6 +61,14 @@ function fmtDistanza(m) {
   if (m == null || !isFinite(Number(m))) return '\u2014';
   var n = Number(m);
   return n >= 1000 ? Math.round(n / 1000) + ' km' : Math.round(n) + ' m';
+}
+
+// Sorgente della posizione: GPS_HW_POS 1 = indirizzo di rete (giallo),
+// 0 = GPS a bordo (verde); null/assente = nessun pallino.
+function etichettaSorgenteGPS(hwPos) {
+  if (hwPos === 1 || hwPos === '1') return 'rete';
+  if (hwPos === 0 || hwPos === '0') return 'GPS a bordo';
+  return 'sorgente n/d';
 }
 
 // ---- Topic helpers ----

@@ -87,7 +87,7 @@ function applicaTemaMappa() {
 function mostraPopupMappa(e) {
   const p = e.features[0].properties;
   const fonte = p.source === 'network' ? 'rete (IP)'
-    : (p.source === 'gps' ? 'GPS hardware' : (p.source || '\u2014'));
+    : (p.source === 'gps' ? 'GPS a bordo' : etichettaSorgenteGPS(p.gps_hw_pos));
   const accuratezza = p.accuracy != null ? ' \u00b1 ' + fmtDistanza(p.accuracy) : '';
   new maplibregl.Popup()
     .setLngLat(e.lngLat)

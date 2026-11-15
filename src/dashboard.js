@@ -44,10 +44,9 @@ function updateDashboard() {
     $('cv-gps').textContent = pos.lat.toFixed(4) + ', ' + pos.lon.toFixed(4);
     var dettaglio;
     if (pos.legacy) {
-      dettaglio = pos.sats != null ? 'sats ' + pos.sats : '';
+      dettaglio = pos.sats != null ? 'sats ' + pos.sats : 'GPS a bordo';
     } else {
-      dettaglio = pos.hwPos === 1 ? 'GPS HW'
-        : (pos.hwPos === 0 ? 'rete' : 'sorgente n/d');
+      dettaglio = etichettaSorgenteGPS(pos.hwPos);
       if (pos.accuracy != null) dettaglio += ' \u00b1 ' + fmtDistanza(pos.accuracy);
     }
     $('cv-gps-sats').textContent = dettaglio;
