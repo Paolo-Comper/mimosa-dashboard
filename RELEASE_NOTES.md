@@ -1,37 +1,42 @@
-# MIMOSA v1.4.0 — Dati MQTT e mappa GPS
+# MIMOSA v1.5.0 — Archivio SQLite e MQTT lato server
 
-Release del 10 novembre 2026.
+Release del 15 novembre 2026.
 
-## Correzioni
+## La novità principale: i dati vivono sul server
 
-- **Dashboard vuota con topic multi-livello** — i messaggi pubblicati su topic
-  con più livelli e/o con `/` iniziale (es.
-  `/uniurb/aserpieri/test/marconi0/esp32-d0ac78/data`) ora vengono associati
-  correttamente a osservatorio e sensore. Prima la dashboard mostrava
-  **Connesso** ma `Dati ricevuti: 0`.
-- **Pressione** — l'unità viene riconosciuta automaticamente (hPa ~1000 o
-  Pa ~100000): un valore come `1004.38` non viene più mostrato come `10.0` in
-  card, tabella, grafico ed export.
-- **Storico** — i record salvati prima del fix (con osservatorio/sensore
-  sbagliati) vengono ignorati: nuova chiave di storage `mimosa_data_v2`.
+Fino alla 1.4.0 lo storico era nel browser e si fermava a **5.000 campioni**
+(5.001 righe nell'export CSV). Ora il server Go riceve i messaggi MQTT, li salva
+in un database **SQLite** (`mimosa.db`) e li serve alla dashboard:
 
-## Novità
+- **Nessun limite di 5.000 campioni**: lo storico cresce sul disco.
+- **I dati restano** anche chiudendo il browser, ricaricando la pagina o
+  riavviando MIMOSA (finché c'è il file `mimosa.db`).
+- **Export CSV/JSON completo**, generato dal server in streaming: scarica tutto
+  lo storico della selezione, non più solo gli ultimi 50 campioni.
+- **Raccolta anche a browser chiuso**: all'avvio il server si ricollega da solo
+  all'ultima sottoscrizione (finché non premi "Disconnetti").
+- **Migrazione automatica** dei campioni che la 1.4.0 teneva in `localStorage`:
+  vengono importati al primo avvio.
 
-- **Mappa basata su `virtual_gps`** — la posizione proiettata è quella del ramo
-  `virtual_gps` (con fallback sul vecchio ramo `gps`):
-  - `GPS_HW_POS: 1` → 🟡 pallino giallo (GPS hardware)
-  - `GPS_HW_POS: 0` → 🟢 pallino verde (posizione di rete)
-  - `GPS_HW_POS: null` / assente → nessun pallino
-  - dopo **20 secondi** senza nuovi dati il pallino viene rimosso (posizione
-    non più aggiornata)
-- **Mappa più fluida** — si aggiorna solo quando cambiano le coordinate (o il
-  colore del pallino): niente più ricentraggio a ogni campione.
-- **Card GPS, tabella ed export** — usano la nuova posizione, con sorgente e
-  accuratezza (`± 100 km` per la posizione di rete, metri per il GPS).
-- **Nuovo logo Marconi** e acronimo corretto:
-  **Misuriamo Insieme l'atMOSferA**.
-- **Export CSV/JSON** — aggiunti `virtual_gps`, `gps_network`, `gps_source`,
-  `gps_accuracy_m`, `gps_hw_pos`.
+## Altre novità
+
+- **MQTT lato server**: il browser non si collega più al broker, lo fa il
+  server. Il campo broker usa **TCP 1883** di default; sono supportati anche
+  `ssl://host:8883`, `ws://host:porta/percorso` e `wss://host:porta/percorso`.
+- **Data e Ora con anno** nella tabella e nell'export.
+- **Legenda GPS corretta**: 🟡 giallo = posizione da indirizzo di rete,
+  🟢 verde = posizione da GPS a bordo.
+- **Nuovo logo MIMOSA e header** come da mockup: logo grande al centro, altri
+  loghi sotto centrati e più piccoli. Screenshot aggiornato.
+- Barra di stato con **Archivio**: campioni totali e spazio occupato dal
+  database.
+
+## Da confermare
+
+Nella mail del prof. la frase *"se non arrivano dati da 20 secondi…"* era
+incompleta. Comportamento attuale: **dopo 20 secondi senza nuovi dati il pallino
+viene rimosso dalla mappa**. Da confermare (alternative possibili: pallino
+grigio oppure ultima posizione mantenuta).
 
 ## Download
 
@@ -47,7 +52,7 @@ Release del 10 novembre 2026.
 **Linux / macOS**
 
 ```bash
-chmod +x mimosa-linux-amd64      # oppure mimosa-darwin-*
+chmod +x mimosa-linux-amd64        # oppure mimosa-darwin-*
 ./mimosa-linux-amd64
 ```
 
@@ -57,21 +62,24 @@ Doppio click su `mimosa-windows-amd64.exe`; se compare SmartScreen:
 *Ulteriori informazioni* → *Esegui comunque*.
 
 Il browser si apre su `http://localhost:8080`. Seleziona **Osservatorio** e
-**Sensore**, controlla il broker MQTT (predefinito `broker.hivemq.com`) e premi
-**Connetti**.
+**Sensore**, controlla il broker MQTT e premi **Connetti**.
+Il database viene creato come `mimosa.db` nella cartella di avvio; si può
+cambiare con `--db FILE`.
 
-## Requisiti
+## Note per l'aggiornamento dalla 1.4.0
 
-- Connessione a internet: grafici, mappa e MQTT sono caricati da CDN e broker
-  pubblici.
-- Broker MQTT raggiungibile in **WebSocket** (HiveMQ: porta `8000`, oppure
-  `8884` con TLS).
+- Al primo avvio i vecchi campioni salvati dal browser vengono importati nel
+  nuovo database.
+- Il broker adesso viene contattato dal server: se la rete blocca la porta
+  **1883**, usa `ssl://host:8883` oppure un URL `ws://`/`wss://`.
+- Lo storico non dipende più dal browser: fai un backup di `mimosa.db` (a
+  programma fermo) o esporta CSV/JSON.
 
 ## Checksums SHA-256
 
 ```text
-9008a1d6b4a8968701f0d92b46214b1ebb526b029815f321ea94f1baf6ef5dba  mimosa-darwin-amd64
-1e4dd0d633852f47b9c31fe727bc10cb2531ab41a11e6ade0eddc42b32ff6c92  mimosa-darwin-arm64
-61c8ba664a95a04516709c677932f061aeb283bf8bead09118e594bab00405ed  mimosa-linux-amd64
-647e8a99379db4f4306d3485291558c039d8168f11d656949fe4ab4ba38c5829  mimosa-windows-amd64.exe
+6c050fda81f32a406ad8b374d6e6ffbef7f59a3ef8b790b6a94d445550d33876  mimosa-darwin-amd64
+a7f45579fc8468cf1208d0e9ebf13dc7099dde2c5794552acf6515c7834cb922  mimosa-darwin-arm64
+d48a67cf3dbdab8298f14f0b9bc6d8e5e999344fc7285135518f750a94794863  mimosa-linux-amd64
+58ed8772f7f6da11d83cb9556cd0eb8a2a0cc592c3e1f9940db11225ded06952  mimosa-windows-amd64.exe
 ```
