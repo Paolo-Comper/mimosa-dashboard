@@ -81,8 +81,9 @@ const helpText = `MIMOSA - Misuriamo Insieme l'atMOSferA
 ======================================================
 
 COSA FA
-  Avvia una dashboard web locale che riceve dati via MQTT e, se richiesto,
-  pubblica dati di test. Apre anche il browser su http://localhost:8080.
+  Avvia una dashboard web locale. Il server si collega al broker MQTT, salva
+  i campioni in un database SQLite e serve la dashboard al browser.
+  Apre anche il browser su http://localhost:8080.
 
 USO BASE
   ./mimosa                     Avvia la dashboard
@@ -103,13 +104,17 @@ DATI DI TEST (--test)
   Senza --count i messaggi vengono inviati ogni 2 secondi finche' non premi Ctrl+C.
 
 ALTRE OPZIONI
+  --db FILE        Database SQLite dello storico            default "mimosa.db"
   PORT=9090 ./mimosa                     Cambia la porta del server (default 8080)
   ./mimosa --test <sensore> <count>      Vecchia sintassi (ancora supportata)
 
 NOTE
-  La dashboard carica grafici, mappa e MQTT da internet: senza connessione la
-  pagina si apre ma grafici e mappa potrebbero non comparire.
-  Il broker del test e' TCP (porta 1883); la dashboard usa WebSocket (porta 8000).
+  La dashboard carica grafici e mappa da internet: senza connessione la pagina
+  si apre ma grafici e mappa potrebbero non comparire.
+  Il broker viene contattato dal server locale: "host" usa MQTT TCP (porta
+  1883); sono supportati anche ssl://host:8883, ws://host:porta/percorso e
+  wss://host:porta/percorso.
+  I dati restano nel file SQLite indicato da --db.
 `
 
 func echo(msg string) {
@@ -297,6 +302,7 @@ func main() {
 	sensoreFlag := flag.String("sensore", "", "Sensore: secondo livello del topic MQTT (obbligatorio con --test)")
 	brokerFlag := flag.String("broker", "broker.hivemq.com", "Host del broker MQTT")
 	countFlag := flag.Int("count", 0, "Numero di messaggi di test (0 o assente = infinito)")
+	dbFlag := flag.String("db", "mimosa.db", "Percorso del database SQLite")
 	flag.Usage = func() { fmt.Print(helpText) }
 	flag.Parse()
 
@@ -392,6 +398,18 @@ func main() {
 		fileServer = http.FileServer(http.FS(subFS))
 	}
 
+	// ── Database SQLite + API ───────────────────────────────────
+	store, err := apriStore(*dbFlag)
+	if err != nil {
+		log.Fatalf("database: %v", err)
+	}
+	defer store.chiudi()
+
+	var gestore *GestoreMQTT
+	hub := nuovoHub(func() any { return eventoStato(gestore.Stato()) })
+	gestore = nuovoGestoreMQTT(store, hub)
+	api := &API{store: store, mqtt: gestore, hub: hub}
+
 	// Listener con SO_REUSEADDR
 	lc := net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {
@@ -403,8 +421,12 @@ func main() {
 		log.Fatalf("listen: %v", err)
 	}
 
+	mux := http.NewServeMux()
+	registraAPI(mux, api)
+	mux.Handle("/", noCache(fileServer))
+
 	server := &http.Server{
-		Handler:  noCache(fileServer),
+		Handler:  mux,
 		ErrorLog: log.New(logWriter{}, "", 0),
 	}
 
@@ -413,7 +435,11 @@ func main() {
 	fmt.Println()
 	url := fmt.Sprintf("http://localhost:%d", port)
 	echo("Apri il browser: " + url)
-	echo("Clicca 'Connetti' per ricevere dati MQTT.")
+	echo("Database: " + *dbFlag)
+	if stats, err := store.statistiche("", ""); err == nil {
+		echo(fmt.Sprintf("Campioni in archivio: %d", stats.Totale))
+	}
+	echo("Clicca 'Connetti': il server si collega al broker e salva i dati.")
 	echo("Ctrl+C per fermare.")
 	fmt.Println("")
 
@@ -437,6 +463,9 @@ func main() {
 			log.Printf("server error: %v", err)
 		}
 	}()
+
+	// Riprende l'ultima sottoscrizione salvata (se l'utente non l'ha disattivata)
+	go gestore.Autoconnetti()
 
 	// Test MQTT (se richiesto) — parte DOPO che il server e' su
 	if *testFlag {
