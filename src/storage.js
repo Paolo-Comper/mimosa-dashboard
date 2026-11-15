@@ -1,35 +1,112 @@
-/* ===== MIMOSA - localStorage Persistence ===== */
+/* ===== MIMOSA - API del server locale + configurazione del browser ===== */
+/* Lo storico dei campioni vive in SQLite lato Go; qui restano solo le
+   preferenze (broker, osservatori, sensori) e le chiamate HTTP. */
 
-function loadData() {
-  try {
-    var raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) allData = JSON.parse(raw);
-  } catch (_) { allData = []; }
-  migraDati();
-}
-
-// Compatibilità con i record salvati prima del rename: il campo "client"
-// diventa "sensore" e viene aggiunto l'"osservatorio" mancante.
-function migraDati() {
-  allData.forEach(function(d) {
-    if (d.sensore === undefined && d.client !== undefined) {
-      d.sensore = d.client;
-      delete d.client;
+function apiRichiesta(path, metodo, body) {
+  var opts = { method: metodo || 'GET', headers: { 'Accept': 'application/json' } };
+  if (body !== undefined) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  return fetch(path, opts).then(function (r) {
+    if (!r.ok) {
+      return r.text().then(function (t) {
+        var msg = t;
+        try { msg = (JSON.parse(t) || {}).error || t; } catch (_) {}
+        throw new Error(msg || ('HTTP ' + r.status));
+      });
     }
-    if (!d.osservatorio) d.osservatorio = DEFAULT_OSSERVATORIO;
+    return r.json();
   });
 }
 
-function saveData() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
-  } catch (_) {
-    allData = allData.slice(-1000);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(allData)); } catch (_2) {}
-  }
+function apiGet(path) { return apiRichiesta(path, 'GET'); }
+
+// Converte un campione del server ({id, topic, osservatorio, sensore, payload})
+// nel record usato dalla dashboard.
+function recordDaSample(sample) {
+  if (!sample) return null;
+  var data = sample.payload || {};
+  return {
+    id: sample.id || 0,
+    timestamp: data.timestamp,
+    topic: sample.topic,
+    osservatorio: sample.osservatorio,
+    sensore: sample.sensore,
+    exported: sample.exported === true,
+    client_id: data.client_id || null,
+    pms: data.pms || {},
+    dht22: data.dht22 || {},
+    bme280: data.bme280 || {},
+    virtual: data.virtual || {},
+    gps: data.gps || {},
+    virtual_gps: data.virtual_gps || null,
+    gps_network: data.gps_network || null
+  };
 }
 
-// ---- Liste di osservatori / sensori ----
+// Importa una tantum i campioni che il vecchio MIMOSA teneva in localStorage.
+function migraVecchiDati() {
+  var fatto = false;
+  try { fatto = localStorage.getItem('mimosa_import_v1') === 'ok'; } catch (_) {}
+  if (fatto) return Promise.resolve();
+
+  var raw = null;
+  try { raw = localStorage.getItem(STORAGE_KEY); } catch (_) {}
+  if (!raw) {
+    try { localStorage.setItem('mimosa_import_v1', 'ok'); } catch (_) {}
+    return Promise.resolve();
+  }
+
+  var records = [];
+  try { records = JSON.parse(raw) || []; } catch (_) { records = []; }
+  if (!records.length) {
+    try { localStorage.removeItem(STORAGE_KEY); localStorage.setItem('mimosa_import_v1', 'ok'); } catch (_) {}
+    return Promise.resolve();
+  }
+
+  return apiRichiesta('/api/import', 'POST', { records: records })
+    .then(function (res) {
+      console.log('MIMOSA: importati ' + (res.inseriti || 0) + ' campioni dal vecchio storage');
+      try { localStorage.removeItem(STORAGE_KEY); localStorage.setItem('mimosa_import_v1', 'ok'); } catch (_) {}
+    })
+    .catch(function (err) {
+      console.warn('MIMOSA: import dello storico locale non riuscito', err);
+    });
+}
+
+// Carica gli ultimi campioni della selezione corrente (per grafici/tabella).
+function caricaStorico() {
+  var q = '?limit=200' +
+    '&osservatorio=' + encodeURIComponent(currentOsservatorio || '') +
+    '&sensore=' + encodeURIComponent(currentSensore || '');
+  return apiGet('/api/samples' + q).then(function (res) {
+    allData = (res || []).map(recordDaSample).filter(function (d) { return d && d.timestamp != null; });
+    ultimoIdCampione = allData.length ? (allData[allData.length - 1].id || 0) : 0;
+  });
+}
+
+// Aggiorna i contatori mostrati nella barra di stato.
+function aggiornaStatistiche() {
+  var q = '?osservatorio=' + encodeURIComponent(currentOsservatorio || '') +
+    '&sensore=' + encodeURIComponent(currentSensore || '');
+  return apiGet('/api/stats' + q).then(function (st) {
+    totaleCampioni = st.totale || 0;
+    esportatiCampioni = st.esportati || 0;
+    dimensioneDB = st.dimensione || 0;
+    return st;
+  });
+}
+
+// Ricarica storico + contatori + rendering per la selezione corrente.
+function ricaricaSelezione() {
+  return Promise.all([caricaStorico(), aggiornaStatistiche()]).then(function () {
+    updateDashboard();
+  });
+}
+
+// ---- Preferenze salvate nel browser (localStorage) ----
+
 function loadList(key, legacyKey) {
   try {
     var raw = localStorage.getItem(key);

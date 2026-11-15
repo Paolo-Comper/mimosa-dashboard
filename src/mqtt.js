@@ -1,254 +1,158 @@
-/* ===== MIMOSA - MQTT ===== */
+/* ===== MIMOSA - MQTT lato server + stream eventi (SSE) ===== */
+/* Il browser non parla più direttamente col broker: chiede al server locale
+   di collegarsi e riceve i campioni via Server-Sent Events. */
 
-// Porte WebSocket dei broker pubblici più comuni
-var BROKER_PORTS = {
-  'broker.hivemq.com': { ws: 8000, wss: 8884 },
-  'test.mosquitto.org': { ws: 8080, wss: 8081 },
-  'broker.emqx.io': { ws: 8083, wss: 8084 },
-  'broker.mqtt.eclipseprojects.io': { ws: 80, wss: 443 },
-  'mqtt.eclipseprojects.io': { ws: 80, wss: 443 }
-};
-
-// Accetta "host", "host:porta", "host:porta/percorso" oppure un URL ws:// o wss://.
-// Per i broker noti usa la porta WebSocket giusta; altrimenti 8000 (ws) o 8884 (wss).
-function parseBroker(raw) {
-  var s = String(raw || '').trim();
-  if (!s) return null;
-
-  var scheme = (s.match(/^(wss?|mqtts?|https?):\/\//i) || [])[1];
-  var useSSL = scheme
-    ? /^(wss|mqtts|https)$/i.test(scheme)
-    : (typeof location !== 'undefined' && location.protocol === 'https:');
-  if (scheme) s = s.slice(scheme.length + 3);
-
-  var path = '/mqtt';
-  var slash = s.indexOf('/');
-  if (slash !== -1) {
-    path = s.slice(slash) || '/mqtt';
-    s = s.slice(0, slash);
-  }
-
-  var host = s;
-  var port = null;
-
-  if (s.charAt(0) === '[') {
-    var end = s.indexOf(']');
-    if (end === -1) return null;
-    host = s.slice(0, end + 1);
-    if (s.charAt(end + 1) === ':') port = parseInt(s.slice(end + 2), 10);
-  } else {
-    var colon = s.lastIndexOf(':');
-    // Un solo ':' separa host e porta; più ':' indicano un IPv6 senza parentesi
-    if (colon !== -1 && s.indexOf(':') === colon) {
-      host = s.slice(0, colon);
-      port = parseInt(s.slice(colon + 1), 10);
-    }
-  }
-
-  var known = BROKER_PORTS[host.toLowerCase().replace(/^\[|\]$/g, '')];
-  if (port == null) {
-    port = known ? (useSSL ? known.wss : known.ws) : (useSSL ? 8884 : 8000);
-  } else if (!scheme && known && port === known.wss && port !== known.ws) {
-    // Porta TLS del broker indicata senza schema: usa wss
-    useSSL = true;
-  }
-
-  if (!host || !isFinite(port) || port < 1 || port > 65535) return null;
-  return { host: host, port: port, path: path, useSSL: useSSL };
-}
-
-function brokerUrl(broker) {
-  var host = broker.host;
-  if (host.indexOf(':') !== -1 && host.charAt(0) !== '[') {
-    host = '[' + host + ']';
-  }
-  return (broker.useSSL ? 'wss' : 'ws') + '://' + host + ':' + broker.port + broker.path;
+function mostraStato(conn, testo, dettaglio) {
+  connStatus.className = 'status-indicator ' + conn;
+  connStatus.textContent = testo;
+  connStatus.title = dettaglio || '';
 }
 
 function connectMQTT() {
   if (isConnecting) return;
-  if (mqttClient && mqttClient.isConnected()) {
+  if (mqttConnesso) {
     disconnectMQTT();
     return;
   }
 
-  if (typeof Paho === 'undefined') {
-    connStatus.className = 'status-indicator disconnected';
-    connStatus.textContent = 'Libreria MQTT non caricata (serve internet)';
-    return;
-  }
-
-  var broker = parseBroker(brokerInput ? brokerInput.value : DEFAULT_BROKER);
-  if (!broker) {
-    connStatus.className = 'status-indicator disconnected';
-    connStatus.textContent = 'Broker non valido';
-    return;
-  }
-
-  var url = brokerUrl(broker);
+  var broker = (brokerInput ? brokerInput.value : DEFAULT_BROKER || '').trim();
+  var topic = getSubscribeTopic();
   isConnecting = true;
-  manualDisconnect = false;
   connectBtn.textContent = 'Connessione...';
-  connStatus.className = 'status-indicator connecting';
-  connStatus.textContent = 'Connessione...';
-  connStatus.title = url;
-  console.log('MQTT: connessione a ' + url);
+  mostraStato('connecting', 'Connessione...', broker + ' · ' + topic);
 
-  var clientId = 'mimosa_web_' + Math.random().toString(36).slice(2, 10);
-  mqttClient = new Paho.Client(url, clientId);
-
-  mqttClient.onConnectionLost = function(resp) {
-    if (manualDisconnect) return;
-    isConnecting = false;
-    connectBtn.textContent = 'Connetti';
-    connStatus.className = 'status-indicator disconnected';
-    connStatus.textContent = 'Disconnesso (errore)';
-    connStatus.title = url + ' — ' + (resp && resp.errorMessage ? resp.errorMessage : 'connessione persa');
-    mqttClient = null;
-    currentSubTopic = null;
-    scheduleReconnect();
-  };
-
-  mqttClient.onMessageArrived = function(msg) {
-    processMessage(msg.destinationName, msg.payloadString);
-  };
-
-  var connectOptions = {
-    keepAliveInterval: KEEP_ALIVE,
-    cleanSession: true,
-    reconnect: false,
-    onSuccess: function() {
+  apiRichiesta('/api/mqtt/connect', 'POST', { broker: broker, topic: topic })
+    .then(function (stato) {
       isConnecting = false;
-      connectBtn.textContent = 'Disconnetti';
-      connStatus.className = 'status-indicator connected';
-      connStatus.textContent = 'Connesso';
-
-      currentOsservatorio = osservatorioSelect.value;
-      currentSensore = sensoreSelect.value;
-
-      var topic = getSubscribeTopic();
-      mqttClient.subscribe(topic, { qos: 1 });
-      currentSubTopic = topic;
-      currentTopic.textContent = topic;
-      updateDashboard();
-    },
-    onFailure: function(err) {
+      saveBroker(broker);
+      applicaStatoMQTT(stato);
+      return ricaricaSelezione();
+    })
+    .catch(function (err) {
       isConnecting = false;
+      mqttConnesso = false;
       connectBtn.textContent = 'Connetti';
-      connStatus.className = 'status-indicator disconnected';
-      var dettaglio = (err && err.errorMessage) ? err.errorMessage : 'connessione fallita';
-      if (err && err.errorCode === 7) {
-        connStatus.textContent = 'Errore socket: broker non raggiungibile';
-        dettaglio = 'Impossibile aprire il WebSocket ' + url +
-          '. Verifica host, porta WebSocket e firewall: la porta 1883 è MQTT TCP e non funziona nel browser. ' +
-          'Se il broker non è tra quelli noti, indica la porta WebSocket (es. host:9001).';
-      } else {
-        connStatus.textContent = 'Errore: ' + dettaglio;
-      }
-      connStatus.title = dettaglio;
-      console.error('MQTT ' + url + ':', dettaglio, err);
-      mqttClient = null;
-      scheduleReconnect();
-    }
-  };
-
-  try {
-    mqttClient.connect(connectOptions);
-  } catch (e) {
-    isConnecting = false;
-    connectBtn.textContent = 'Connetti';
-    connStatus.className = 'status-indicator disconnected';
-    connStatus.textContent = 'Errore: ' + e.message;
-    mqttClient = null;
-  }
+      mostraStato('disconnected', 'Errore: ' + err.message, err.message);
+    });
 }
 
 function disconnectMQTT() {
-  manualDisconnect = true;
-  clearTimeout(reconnectTimer);
-  if (mqttClient && mqttClient.isConnected()) {
-    try { mqttClient.disconnect(); } catch (_) {}
-  }
-  mqttClient = null;
-  currentSubTopic = null;
-  isConnecting = false;
+  mqttConnesso = false;
+  chiudiStream();
   connectBtn.textContent = 'Connetti';
-  connStatus.className = 'status-indicator disconnected';
-  connStatus.textContent = 'Disconnesso';
+  mostraStato('disconnected', 'Disconnesso', '');
+  apiRichiesta('/api/mqtt/disconnect', 'POST', {}).catch(function () {});
 }
 
-function scheduleReconnect() {
-  clearTimeout(reconnectTimer);
-  reconnectTimer = setTimeout(function() {
-    if (!mqttClient || !mqttClient.isConnected()) {
-      connectMQTT();
-    }
-  }, RECONNECT_DELAY);
-}
+// Applica lo stato del server alla UI (usato da connect, su SSE e all'avvio).
+function applicaStatoMQTT(stato) {
+  if (!stato) return;
+  mqttConnesso = !!stato.connected;
+  connectBtn.textContent = mqttConnesso ? 'Disconnetti' : 'Connetti';
+  if (stato.topic) currentTopic.textContent = stato.topic;
 
-// Il topic può avere più livelli e iniziare con '/', come nel caso reale:
-//   /uniurb/aserpieri/test/marconi0/esp32-d0ac78/data
-// L'osservatorio è tutto ciò che precede l'ultimo livello (può contenere '/'),
-// il sensore è l'ultimo livello, il suffisso '/data' viene rimosso.
-function parseTopic(topic) {
-  var t = String(topic || '').replace(/\/data\/?$/, '');
-  var i = t.lastIndexOf('/');
-  if (i < 0) {
-    return { osservatorio: t || DEFAULT_OSSERVATORIO, sensore: 'sconosciuto' };
+  if (mqttConnesso) {
+    if (stato.broker) brokerInput.value = stato.broker;
+    mostraStato('connected', 'Connesso', (stato.broker || '') + ' · ' + (stato.topic || ''));
+    if (!eventiSSE) apriStream();
+  } else if (stato.error) {
+    mostraStato('disconnected', 'Errore: ' + stato.error, stato.error);
+  } else {
+    mostraStato('disconnected', 'Disconnesso', '');
   }
-  return {
-    osservatorio: t.slice(0, i) || DEFAULT_OSSERVATORIO,
-    sensore: t.slice(i + 1) || 'sconosciuto'
+}
+
+// All'avvio chiede al server se è già connesso (es. riconnessione automatica).
+function inizializzaStatoMQTT() {
+  return apiGet('/api/status').then(function (stato) {
+    if (stato && stato.connected) {
+      assicuraOpzione(osservatorioSelect, stato.osservatorio);
+      if (stato.osservatorio) osservatorioSelect.value = stato.osservatorio;
+      assicuraOpzione(sensoreSelect, stato.sensore);
+      if (stato.sensore) sensoreSelect.value = stato.sensore;
+      currentOsservatorio = osservatorioSelect.value;
+      currentSensore = sensoreSelect.value;
+      if (stato.broker) brokerInput.value = stato.broker;
+    }
+    applicaStatoMQTT(stato || {});
+    return stato;
+  });
+}
+
+// ---- Server-Sent Events ----
+
+function apriStream() {
+  chiudiStream();
+  if (typeof EventSource === 'undefined') return;
+  eventiSSE = new EventSource('/api/stream');
+
+  eventiSSE.addEventListener('status', function (ev) {
+    try {
+      var msg = JSON.parse(ev.data);
+      if (msg && msg.type === 'status' && msg.mqtt) applicaStatoMQTT(msg.mqtt);
+    } catch (_) {}
+  });
+
+  eventiSSE.addEventListener('sample', function (ev) {
+    try {
+      var msg = JSON.parse(ev.data);
+      if (msg && msg.type === 'sample' && msg.sample) aggiungiCampioneUI(msg.sample);
+    } catch (_) {}
+  });
+
+  eventiSSE.onerror = function () {
+    if (!mqttConnesso) mostraStato('connecting', 'Riconnessione...', '');
   };
 }
 
-function processMessage(topic, payload) {
-  try {
-    var data = JSON.parse(payload);
-    if (!data.timestamp) return;
-
-    var nomi = parseTopic(topic);
-    ultimoArrivoDati = Date.now();
-
-    allData.push({
-      timestamp: data.timestamp,
-      topic: topic,
-      osservatorio: nomi.osservatorio,
-      sensore: nomi.sensore,
-      client_id: data.client_id || null,
-      pms: data.pms || {},
-      dht22: data.dht22 || {},
-      bme280: data.bme280 || {},
-      virtual: data.virtual || {},
-      gps: data.gps || {},
-      virtual_gps: data.virtual_gps || null,
-      gps_network: data.gps_network || null
-    });
-
-    if (allData.length > MAX_RECORDS) {
-      allData = allData.slice(-MAX_RECORDS);
-    }
-
-    saveData();
-    updateDashboard();
-  } catch (e) {
-    console.warn('Errore parsing messaggio:', e);
+function chiudiStream() {
+  if (eventiSSE) {
+    eventiSSE.close();
+    eventiSSE = null;
   }
 }
 
-// Cambio di osservatorio o sensore: riallinea l'iscrizione al topic {osservatorio}/{sensore}/data
+function appartieneAllaSelezione(d) {
+  return d.osservatorio === currentOsservatorio &&
+    (currentSensore === ALL || d.sensore === currentSensore);
+}
+
+// Aggiunge un campione ricevuto in tempo reale (senza riscriverlo: lo salva
+// già il server). Tiene in RAM solo gli ultimi MAX_MEMORIA campioni.
+function aggiungiCampioneUI(sample) {
+  if (!sample) return;
+  if (sample.id && sample.id <= ultimoIdCampione) return; // già caricato dallo storico
+  var d = recordDaSample(sample);
+  if (!d || d.timestamp == null) return;
+
+  allData.push(d);
+  if (allData.length > MAX_MEMORIA) {
+    allData = allData.slice(-MAX_MEMORIA);
+  }
+  ultimoIdCampione = Math.max(ultimoIdCampione, sample.id || 0);
+  ultimoArrivoDati = Date.now();
+  if (appartieneAllaSelezione(d)) totaleCampioni += 1;
+  updateDashboard();
+}
+
+// Cambio osservatorio/sensore: il server si ri-sottoscrive e la UI ricarica
+// lo storico della nuova selezione.
 function onSelectionChange() {
   var topic = getSubscribeTopic();
   currentTopic.textContent = topic;
   currentOsservatorio = osservatorioSelect.value;
   currentSensore = sensoreSelect.value;
 
-  if (mqttClient && mqttClient.isConnected()) {
-    if (currentSubTopic && currentSubTopic !== topic) {
-      try { mqttClient.unsubscribe(currentSubTopic); } catch (_) {}
-    }
-    mqttClient.subscribe(topic, { qos: 1 });
-    currentSubTopic = topic;
+  if (mqttConnesso) {
+    apiRichiesta('/api/mqtt/connect', 'POST', { broker: brokerInput.value.trim(), topic: topic })
+      .then(function (stato) { applicaStatoMQTT(stato); })
+      .catch(function (err) {
+        mqttConnesso = false;
+        connectBtn.textContent = 'Connetti';
+        mostraStato('disconnected', 'Errore: ' + err.message, err.message);
+      });
   }
-  updateDashboard();
+  ricaricaSelezione().catch(function (err) {
+    console.warn('MIMOSA: ricarica selezione non riuscita', err);
+  });
 }

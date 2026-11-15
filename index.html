@@ -19,12 +19,10 @@
 </script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<!-- Paho MQTT -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
 <!-- MapLibre GL -->
 <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 
@@ -66,8 +64,8 @@
       <div class="control-group">
         <label for="brokerInput">Broker MQTT:</label>
         <input type="text" id="brokerInput" value="broker.hivemq.com"
-               placeholder="es. broker.hivemq.com o test.mosquitto.org:8081"
-               title="Host, host:porta oppure URL websocket (ws:// o wss://). Per i broker pubblici noti la porta WebSocket è automatica; altrimenti specifica la porta (es. host:9001)."
+               placeholder="es. broker.hivemq.com (TCP 1883)"
+               title="Host del broker (TCP 1883) oppure URL esplicito: tcp://host:porta, ssl://host:8883, ws://host:porta/percorso, wss://host:porta/percorso. È il server MIMOSA a collegarsi al broker."
                autocomplete="off" spellcheck="false">
       </div>
       <div class="control-group">
@@ -81,6 +79,7 @@
     <div class="panel-row stats-row">
       <span>Dati ricevuti: <strong id="dataCount">0</strong></span>
       <span>Esportati: <strong id="exportedCount">0</strong></span>
+      <span>Archivio: <strong id="archiveInfo">—</strong></span>
       <span>Ultimo aggiornamento: <strong id="lastUpdate">—</strong></span>
       <span>Topic: <code id="currentTopic">mimosa/+/data</code></span>
     </div>
@@ -130,9 +129,9 @@
 
   <!-- Limit warning -->
   <div id="limitWarning" class="limit-warning" style="display:none;">
-    ⚠️ Solo gli ultimi <strong>50</strong> campioni sono visualizzati nei grafici e nella mappa.
-    Ci sono <strong id="totalSamples">0</strong> campioni in totale.
-    <a href="#" onclick="toggleExportMenu(true);return false;">Esporta i dati</a> per vederli tutti.
+    ⚠️ Nei grafici e nella mappa sono mostrati solo gli ultimi <strong>50</strong> campioni.
+    Lo storico salvato contiene <strong id="totalSamples">0</strong> campioni:
+    <a href="#" onclick="toggleExportMenu(true);return false;">esporta i dati</a> per averli tutti.
   </div>
 
   <!-- Charts -->
@@ -211,15 +210,15 @@
   </section>
 </main>
 
-<script src="src/state.js?v=4"></script>
-<script src="src/storage.js?v=4"></script>
-<script src="src/charts.js?v=4"></script>
-<script src="src/mqtt.js?v=4"></script>
-<script src="src/export.js?v=4"></script>
-<script src="src/dashboard.js?v=4"></script>
-<script src="src/main.js?v=4"></script>
-<script src="src/mappa.js?v=4"></script>
-<script src="src/theme.js?v=4"></script>
+<script src="src/state.js?v=5"></script>
+<script src="src/storage.js?v=5"></script>
+<script src="src/charts.js?v=5"></script>
+<script src="src/mqtt.js?v=5"></script>
+<script src="src/export.js?v=5"></script>
+<script src="src/dashboard.js?v=5"></script>
+<script src="src/main.js?v=5"></script>
+<script src="src/mappa.js?v=5"></script>
+<script src="src/theme.js?v=5"></script>
 </body>
 </html>
 

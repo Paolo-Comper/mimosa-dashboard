@@ -1,6 +1,7 @@
 /* ===== MIMOSA - State & Constants ===== */
-// v2: i record salvati prima del fix del parsing del topic sono etichettati
-// male (osservatorio/sensore sbagliati), quindi ripartiamo da uno storage pulito.
+// Lo storico completo ora sta nel database SQLite del server. In localStorage
+// resta solo la configurazione; STORAGE_KEY serve alla migrazione una tantum
+// dei vecchi campioni salvati dal browser.
 const STORAGE_KEY = 'mimosa_data_v2';
 const STORAGE_SENSORS_KEY = 'mimosa_sensori';
 const STORAGE_OSSERVATORI_KEY = 'mimosa_osservatori';
@@ -10,9 +11,8 @@ const DEFAULT_BROKER = 'broker.hivemq.com';
 const DEFAULT_SENSORS = ['rpi-zero-1', 'rpi-zero-2'];
 const DEFAULT_OSSERVATORI = ['mimosa'];
 const DEFAULT_OSSERVATORIO = 'mimosa';
-const MAX_RECORDS = 5000;
-const KEEP_ALIVE = 60;
-const RECONNECT_DELAY = 5000;
+// Campioni tenuti in RAM per grafici/tabella: lo storico completo è nel DB.
+const MAX_MEMORIA = 500;
 const ALL = '+';
 
 // Se il sensore non invia nuovi dati per questo tempo, la posizione sulla
@@ -22,13 +22,16 @@ let ultimoArrivoDati = 0;
 
 // ---- Global state ----
 let allData = [];
-let mqttClient = null;
 let isConnecting = false;
-let reconnectTimer = null;
+let mqttConnesso = false;
 let currentSensore = ALL;
 let currentOsservatorio = DEFAULT_OSSERVATORIO;
 let currentSubTopic = null;
-let manualDisconnect = false;
+let eventiSSE = null;
+let ultimoIdCampione = 0;
+let totaleCampioni = 0;
+let esportatiCampioni = 0;
+let dimensioneDB = 0;
 
 // ---- DOM refs ----
 const $ = id => document.getElementById(id);
@@ -75,8 +78,18 @@ function etichettaSorgenteGPS(hwPos) {
 function getSubscribeTopic() {
   return osservatorioSelect.value + '/' + sensoreSelect.value + '/data';
 }
-function getPublishTopic(osservatorio, sensore) {
-  return osservatorio + '/' + sensore + '/data';
+
+// Aggiunge un'opzione al select se non è già presente (utile quando il server
+// è connesso a un osservatorio/sensore non ancora salvati nel browser).
+function assicuraOpzione(select, nome) {
+  if (!nome) return;
+  for (var i = 0; i < select.options.length; i++) {
+    if (select.options[i].value === nome) return;
+  }
+  var opt = document.createElement('option');
+  opt.value = nome;
+  opt.textContent = nome;
+  select.appendChild(opt);
 }
 
 // Dati che rientrano nella selezione corrente (osservatorio + sensore)

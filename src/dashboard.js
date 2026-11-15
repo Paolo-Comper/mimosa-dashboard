@@ -3,15 +3,22 @@
 function updateDashboard() {
   var filtered = datiFiltrati();
 
-  dataCount.textContent = filtered.length;
-  $('exportedCount').textContent = allData.filter(function(d) { return d.exported === true; }).length;
+  dataCount.textContent = (totaleCampioni || 0).toLocaleString('it-IT');
+  $('exportedCount').textContent = (esportatiCampioni || 0).toLocaleString('it-IT');
+
+  var info = document.getElementById('archiveInfo');
+  if (info) {
+    var mb = (dimensioneDB || 0) / (1024 * 1024);
+    info.textContent = (totaleCampioni || 0).toLocaleString('it-IT') + ' campioni' +
+      (mb >= 0.1 ? ' · ' + mb.toFixed(1) + ' MB' : '');
+  }
 
   // Limit warning
   var warn = document.getElementById('limitWarning');
   var totalEl = document.getElementById('totalSamples');
-  if (filtered.length > 50) {
+  if ((totaleCampioni || 0) > 50) {
     warn.style.display = 'flex';
-    totalEl.textContent = filtered.length;
+    totalEl.textContent = (totaleCampioni || 0).toLocaleString('it-IT');
   } else {
     warn.style.display = 'none';
   }

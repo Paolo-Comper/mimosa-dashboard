@@ -6,3 +6,8 @@ mimosa-*
 
 # Build output e artefatti di rilascio (non versionati)
 dist/
+
+# Database SQLite locale e file di appoggio
+*.db
+*.db-wal
+*.db-shm
