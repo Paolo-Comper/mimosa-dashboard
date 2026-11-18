@@ -175,7 +175,7 @@ func (g *GestoreMQTT) Connetti(brokerRaw, topic string) (StatoMQTT, error) {
 			Sensore:      sensore,
 		}
 		g.mu.Unlock()
-		g.hub.Broadcast(eventoStato(g.Stato()))
+		g.hub.Broadcast("status", eventoStato(g.Stato()))
 	})
 	opts.SetConnectionLostHandler(func(_ mqtt.Client, err error) {
 		g.mu.Lock()
@@ -184,7 +184,7 @@ func (g *GestoreMQTT) Connetti(brokerRaw, topic string) (StatoMQTT, error) {
 			g.stato.Errore = err.Error()
 		}
 		g.mu.Unlock()
-		g.hub.Broadcast(eventoStato(g.Stato()))
+		g.hub.Broadcast("status", eventoStato(g.Stato()))
 	})
 
 	cli := mqtt.NewClient(opts)
@@ -212,7 +212,7 @@ func (g *GestoreMQTT) Connetti(brokerRaw, topic string) (StatoMQTT, error) {
 	_ = g.store.salvaImpostazione("broker", brokerRaw)
 	_ = g.store.salvaImpostazione("topic", topic)
 	_ = g.store.salvaImpostazione("auto", "1")
-	g.hub.Broadcast(eventoStato(g.Stato()))
+	g.hub.Broadcast("status", eventoStato(g.Stato()))
 	return g.Stato(), nil
 }
 
@@ -227,7 +227,7 @@ func (g *GestoreMQTT) Disconnetti() StatoMQTT {
 	if cli != nil {
 		cli.Disconnect(250)
 	}
-	g.hub.Broadcast(eventoStato(g.Stato()))
+	g.hub.Broadcast("status", eventoStato(g.Stato()))
 	return g.Stato()
 }
 
@@ -286,7 +286,7 @@ func (g *GestoreMQTT) onMessage(_ mqtt.Client, msg mqtt.Message) {
 		log.Printf("MQTT: salvataggio campione fallito: %v", err)
 		return
 	}
-	g.hub.Broadcast(map[string]any{
+	g.hub.Broadcast("sample", map[string]any{
 		"type": "sample",
 		"sample": campioneEvento{
 			ID:           id,

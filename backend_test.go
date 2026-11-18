@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseTopicMQTT(t *testing.T) {
@@ -242,5 +246,120 @@ func TestNormalizzaPressione(t *testing.T) {
 		if out := normalizzaPressioneVal(in); math.Abs(out-atteso) > 1e-9 {
 			t.Errorf("normalizzaPressioneVal(%v) = %v, atteso %v", in, out, atteso)
 		}
+	}
+}
+
+// leggiEventoSSE legge un blocco SSE (righe fino alla riga vuota).
+func leggiEventoSSE(sc *bufio.Scanner) string {
+	var righe []string
+	for sc.Scan() {
+		riga := sc.Text()
+		if riga == "" {
+			if len(righe) > 0 {
+				return strings.Join(righe, "\n")
+			}
+			continue
+		}
+		righe = append(righe, riga)
+	}
+	return strings.Join(righe, "\n")
+}
+
+func TestSSEEventiNominati(t *testing.T) {
+	hub := nuovoHub(func() any { return eventoStato(StatoMQTT{Connesso: false}) })
+	srv := httptest.NewServer(http.HandlerFunc(hub.ServeHTTP))
+	defer srv.Close()
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/event-stream") {
+		t.Fatalf("Content-Type inatteso: %q", ct)
+	}
+
+	sc := bufio.NewScanner(resp.Body)
+	trovatoStatus := false
+	for i := 0; i < 10; i++ {
+		ev := leggiEventoSSE(sc)
+		if strings.Contains(ev, "event: status") {
+			trovatoStatus = true
+			break
+		}
+	}
+	if !trovatoStatus {
+		t.Fatal("evento SSE iniziale 'status' mancante")
+	}
+
+	hub.Broadcast("sample", map[string]any{
+		"type":   "sample",
+		"sample": map[string]any{"id": 7, "topic": "mimosa/s1/data"},
+	})
+	trovatoSample := false
+	for i := 0; i < 10; i++ {
+		ev := leggiEventoSSE(sc)
+		if strings.Contains(ev, "event: sample") {
+			trovatoSample = true
+			if !strings.Contains(ev, `"id":7`) {
+				t.Fatalf("evento sample senza id: %q", ev)
+			}
+			break
+		}
+	}
+	if !trovatoSample {
+		t.Fatal("evento SSE 'sample' mancante (il client addEventListener non lo riceverebbe)")
+	}
+}
+
+func TestAPIStatusVersioneECSamplesReceivedAt(t *testing.T) {
+	store, err := apriStore(filepath.Join(t.TempDir(), "api.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.chiudi()
+
+	campione := Campione{
+		Timestamp:    1,
+		Topic:        "mimosa/s1/data",
+		Osservatorio: "mimosa",
+		Sensore:      "s1",
+		Payload:      json.RawMessage(`{"timestamp":1}`),
+	}
+	if _, err := store.inserisciCampione(campione); err != nil {
+		t.Fatal(err)
+	}
+	hub := nuovoHub(nil)
+	gestore := nuovoGestoreMQTT(store, hub)
+	api := &API{store: store, mqtt: gestore, hub: hub}
+
+	rec := httptest.NewRecorder()
+	api.handleStatus(rec, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+	var stato struct {
+		Versione string `json:"versione"`
+		Stats    Statistiche
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &stato); err != nil {
+		t.Fatalf("status non JSON: %v (%s)", err, rec.Body.String())
+	}
+	if stato.Versione != versione {
+		t.Fatalf("versione status = %q, attesa %q", stato.Versione, versione)
+	}
+	if stato.Stats.Totale != 1 {
+		t.Fatalf("totale status = %d, atteso 1", stato.Stats.Totale)
+	}
+
+	rec = httptest.NewRecorder()
+	api.handleSamples(rec, httptest.NewRequest(http.MethodGet, "/api/samples?limit=5", nil))
+	var campioni []campioneJSON
+	if err := json.Unmarshal(rec.Body.Bytes(), &campioni); err != nil {
+		t.Fatalf("samples non JSON: %v (%s)", err, rec.Body.String())
+	}
+	if len(campioni) != 1 {
+		t.Fatalf("campioni = %d, atteso 1", len(campioni))
+	}
+	if campioni[0].ReceivedAt <= 0 {
+		t.Fatalf("received_at non valorizzato: %+v", campioni[0])
 	}
 }

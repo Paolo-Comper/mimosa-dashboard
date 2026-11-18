@@ -102,6 +102,7 @@ const campioneVecchio = {
   osservatorio: '/uniurb/aserpieri/test/marconi0',
   sensore: 'esp32-d0ac78',
   exported: false,
+  received_at: 1794094000000,
   payload: JSON.parse(payloadVecchio)
 };
 const recVecchio = recordDaSample(campioneVecchio);
@@ -109,6 +110,7 @@ assert.strictEqual(recVecchio.timestamp, 1794094530);
 assert.strictEqual(recVecchio.osservatorio, '/uniurb/aserpieri/test/marconi0');
 assert.strictEqual(recVecchio.sensore, 'esp32-d0ac78');
 assert.strictEqual(recVecchio.exported, false);
+assert.strictEqual(recVecchio.received_at, 1794094000000);
 assert.strictEqual(posizioneGPS(recVecchio), null); // gps invalido, nessun virtual_gps
 assert.strictEqual(pressioneHpa(recVecchio).toFixed(1), '1004.4');
 
@@ -118,10 +120,12 @@ const campioneNuovo = {
   osservatorio: '/uniurb/aserpieri/test/marconi0',
   sensore: 'esp32-d0ac78',
   exported: true,
+  received_at: 1794094757000,
   payload: JSON.parse(payloadNuovo)
 };
 const recNuovo = recordDaSample(campioneNuovo);
 assert.strictEqual(recNuovo.exported, true);
+assert.strictEqual(recNuovo.received_at, 1794094757000);
 const pos = posizioneGPS(recNuovo);
 assert.ok(pos, 'virtual_gps deve produrre una posizione');
 assert.strictEqual(pos.lat, 45.4642);

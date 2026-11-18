@@ -16,29 +16,39 @@ import (
 
 // ── SSE: eventi verso la dashboard ─────────────────────────────────────────
 
+// eventoSSE è un evento con nome (Server-Sent Events): il browser lo riceve
+// tramite addEventListener("<nome>"). Senza "event:" gli eventi finirebbero
+// tutti sul generico "message" e i listener "sample"/"status" non scatterebbero.
+type eventoSSE struct {
+	nome string
+	dati []byte
+}
+
 type Hub struct {
 	mu            sync.Mutex
-	clienti       map[chan []byte]struct{}
+	clienti       map[chan eventoSSE]struct{}
 	statoIniziale func() any
 }
 
 func nuovoHub(statoIniziale func() any) *Hub {
 	return &Hub{
-		clienti:       make(map[chan []byte]struct{}),
+		clienti:       make(map[chan eventoSSE]struct{}),
 		statoIniziale: statoIniziale,
 	}
 }
 
-func (h *Hub) Broadcast(v any) {
+func (h *Hub) Broadcast(nome string, v any) {
 	b, err := json.Marshal(v)
 	if err != nil {
+		log.Printf("SSE: marshal evento %q: %v", nome, err)
 		return
 	}
+	evento := eventoSSE{nome: nome, dati: b}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for ch := range h.clienti {
 		select {
-		case ch <- b:
+		case ch <- evento:
 		default: // client lento: salta l'evento, non bloccare il server
 		}
 	}
@@ -55,7 +65,7 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	ch := make(chan []byte, 64)
+	ch := make(chan eventoSSE, 64)
 	h.mu.Lock()
 	h.clienti[ch] = struct{}{}
 	h.mu.Unlock()
@@ -65,9 +75,15 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.mu.Unlock()
 	}()
 
+	// Retry: se la connessione cade, il browser riprova da solo.
+	if _, err := io.WriteString(w, "retry: 3000\n\n"); err != nil {
+		return
+	}
+	flusher.Flush()
+
 	if h.statoIniziale != nil {
 		if b, err := json.Marshal(h.statoIniziale()); err == nil {
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", b); err != nil {
+			if _, err := fmt.Fprintf(w, "event: status\ndata: %s\n\n", b); err != nil {
 				return
 			}
 			flusher.Flush()
@@ -80,8 +96,8 @@ func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-r.Context().Done():
 			return
-		case b := <-ch:
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", b); err != nil {
+		case ev := <-ch:
+			if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.nome, ev.dati); err != nil {
 				return
 			}
 			flusher.Flush()
@@ -132,7 +148,8 @@ func leggiBodyJSON(w http.ResponseWriter, r *http.Request, maxByte int64, dst an
 
 type rispostaStato struct {
 	StatoMQTT
-	Stats Statistiche `json:"stats"`
+	Versione string      `json:"versione"`
+	Stats    Statistiche `json:"stats"`
 }
 
 func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -142,7 +159,7 @@ func (a *API) handleStatus(w http.ResponseWriter, r *http.Request) {
 		erroreJSON(w, http.StatusInternalServerError, err)
 		return
 	}
-	scriviJSON(w, http.StatusOK, rispostaStato{StatoMQTT: stato, Stats: stats})
+	scriviJSON(w, http.StatusOK, rispostaStato{StatoMQTT: stato, Versione: versione, Stats: stats})
 }
 
 func (a *API) handleStats(w http.ResponseWriter, r *http.Request) {
@@ -161,6 +178,7 @@ type campioneJSON struct {
 	Osservatorio string          `json:"osservatorio"`
 	Sensore      string          `json:"sensore"`
 	Esportato    bool            `json:"exported"`
+	ReceivedAt   int64           `json:"received_at"`
 	Payload      json.RawMessage `json:"payload"`
 }
 
@@ -183,6 +201,7 @@ func (a *API) handleSamples(w http.ResponseWriter, r *http.Request) {
 			Osservatorio: c.Osservatorio,
 			Sensore:      c.Sensore,
 			Esportato:    c.Esportato,
+			ReceivedAt:   c.ReceivedAt,
 			Payload:      c.Payload,
 		})
 	}
@@ -215,7 +234,7 @@ func (a *API) handleDeleteSamples(w http.ResponseWriter, r *http.Request) {
 		erroreJSON(w, http.StatusInternalServerError, err)
 		return
 	}
-	a.hub.Broadcast(eventoStato(a.mqtt.Stato()))
+	a.hub.Broadcast("status", eventoStato(a.mqtt.Stato()))
 	scriviJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -224,7 +243,7 @@ func (a *API) handleDeleteExported(w http.ResponseWriter, r *http.Request) {
 		erroreJSON(w, http.StatusInternalServerError, err)
 		return
 	}
-	a.hub.Broadcast(eventoStato(a.mqtt.Stato()))
+	a.hub.Broadcast("status", eventoStato(a.mqtt.Stato()))
 	scriviJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

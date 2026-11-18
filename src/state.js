@@ -18,6 +18,7 @@ const ALL = '+';
 // Se il sensore non invia nuovi dati per questo tempo, la posizione sulla
 // mappa non è più considerata valida (il pallino viene tolto).
 const GPS_STALE_MS = 20000;
+const POLL_INTERVAL_MS = 4000;
 let ultimoArrivoDati = 0;
 
 // ---- Global state ----
@@ -32,6 +33,9 @@ let ultimoIdCampione = 0;
 let totaleCampioni = 0;
 let esportatiCampioni = 0;
 let dimensioneDB = 0;
+let pollingTimer = null;
+let sincronizzando = false;
+let versioneServer = '';
 
 // ---- DOM refs ----
 const $ = id => document.getElementById(id);

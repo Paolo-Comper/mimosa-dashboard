@@ -2,8 +2,20 @@
 /* Lo storico dei campioni vive in SQLite lato Go; qui restano solo le
    preferenze (broker, osservatori, sensori) e le chiamate HTTP. */
 
+function messaggioErroreApi(path, err) {
+  var msg = (err && err.message) ? err.message : String(err);
+  if (typeof location !== 'undefined' && location.protocol === 'file:') {
+    return msg + ' — MIMOSA va aperto da http://localhost:8080, non come file (index.html)';
+  }
+  return msg + ' — richiesta a ' + path;
+}
+
 function apiRichiesta(path, metodo, body) {
-  var opts = { method: metodo || 'GET', headers: { 'Accept': 'application/json' } };
+  var opts = {
+    method: metodo || 'GET',
+    headers: { 'Accept': 'application/json' },
+    cache: 'no-store'
+  };
   if (body !== undefined) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
@@ -17,10 +29,26 @@ function apiRichiesta(path, metodo, body) {
       });
     }
     return r.json();
+  }, function (err) {
+    throw new Error(messaggioErroreApi(path, err));
   });
 }
 
 function apiGet(path) { return apiRichiesta(path, 'GET'); }
+
+// Riprova una GET quando il server sta ancora partendo (es. attesa avvio).
+function apiGetConRitentativi(path, tentativi, attesaMs) {
+  tentativi = tentativi || 1;
+  attesaMs = attesaMs || 500;
+  return apiGet(path).catch(function (err) {
+    if (tentativi <= 1) throw err;
+    return new Promise(function (resolve) {
+      setTimeout(function () {
+        resolve(apiGetConRitentativi(path, tentativi - 1, attesaMs));
+      }, attesaMs);
+    });
+  });
+}
 
 // Converte un campione del server ({id, topic, osservatorio, sensore, payload})
 // nel record usato dalla dashboard.
@@ -34,6 +62,7 @@ function recordDaSample(sample) {
     osservatorio: sample.osservatorio,
     sensore: sample.sensore,
     exported: sample.exported === true,
+    received_at: sample.received_at || null,
     client_id: data.client_id || null,
     pms: data.pms || {},
     dht22: data.dht22 || {},
@@ -83,6 +112,16 @@ function caricaStorico() {
   return apiGet('/api/samples' + q).then(function (res) {
     allData = (res || []).map(recordDaSample).filter(function (d) { return d && d.timestamp != null; });
     ultimoIdCampione = allData.length ? (allData[allData.length - 1].id || 0) : 0;
+
+    // Se l'ultimo campione è appena arrivato al server, la posizione GPS è
+    // ancora "fresca": mostra subito il pallino anche senza aspettare un SSE.
+    var ultimo = allData.length ? allData[allData.length - 1] : null;
+    if (ultimo && ultimo.received_at) {
+      var eta = Date.now() - ultimo.received_at;
+      ultimoArrivoDati = (eta >= 0 && eta <= GPS_STALE_MS) ? ultimo.received_at : 0;
+    } else {
+      ultimoArrivoDati = 0;
+    }
   });
 }
 

@@ -36,8 +36,8 @@ function aggiungiLivelliMappa() {
       : { type: 'FeatureCollection', features: [] }
   });
 
-  // Pallino: GIALLO = posizione dal GPS hardware (GPS_HW_POS = 1),
-  // VERDE = posizione dalla rete (GPS_HW_POS = 0).
+  // Pallino: GIALLO = posizione da indirizzo di rete (GPS_HW_POS = 1),
+  // VERDE = posizione da GPS a bordo (GPS_HW_POS = 0).
   map.addLayer({
     id: 'ultima-posizione',
     type: 'circle',
@@ -52,6 +52,13 @@ function aggiungiLivelliMappa() {
   });
 
   map.on('click', 'ultima-posizione', e => mostraPopupMappa(e));
+
+  // Se una posizione è già disponibile (storico caricato prima del termine
+  // del caricamento dello stile), centra subito la mappa su di essa.
+  const featureIniziale = window.ultimaFeatureMappa;
+  if (featureIniziale && featureIniziale.geometry && featureIniziale.geometry.coordinates) {
+    map.jumpTo({ center: featureIniziale.geometry.coordinates, zoom: 15 });
+  }
 }
 
 function initMimosaMap() {
@@ -114,9 +121,6 @@ function svuotaMappa() {
 }
 
 function aggiornaMappa(dati) {
-  const map = window.mimosaMap;
-  if (!map || !map.isStyleLoaded()) return;
-
   // Nessun dato recente: la posizione non è più attendibile (GPS_STALE_MS).
   if (!ultimoArrivoDati || Date.now() - ultimoArrivoDati > GPS_STALE_MS) {
     svuotaMappa();
@@ -169,11 +173,16 @@ function aggiornaMappa(dati) {
     Math.abs(prec.geometry.coordinates[1] - pos.lat) < 1e-6;
   const stessoColore = !!prec && prec.properties.gps_hw_pos === hwPos;
 
+  // Salva la feature anche se la mappa non è ancora pronta: quando lo stile
+  // finisce di caricare, aggiungiLivelliMappa la userà (e centrerà la mappa).
   window.ultimaFeatureMappa = feature;
 
   // Aggiorna la mappa (e ricentra) solo se cambiano le coordinate o il colore
   // del pallino: evita di "rigenerare" la mappa a ogni campione.
   if (stesseCoord && stessoColore) return;
+
+  const map = window.mimosaMap;
+  if (!map || !map.isStyleLoaded()) return;
 
   const source = map.getSource('posizione');
   if (!source) return;

@@ -1,6 +1,8 @@
 /* ===== MIMOSA - MQTT lato server + stream eventi (SSE) ===== */
 /* Il browser non parla più direttamente col broker: chiede al server locale
-   di collegarsi e riceve i campioni via Server-Sent Events. */
+   di collegarsi e riceve i campioni via Server-Sent Events.
+   Sicurezza: c'è anche un polling periodico, così la dashboard continua ad
+   aggiornarsi anche se SSE viene bufferizzato/bloccato da proxy o browser. */
 
 function mostraStato(conn, testo, dettaglio) {
   connStatus.className = 'status-indicator ' + conn;
@@ -39,6 +41,7 @@ function connectMQTT() {
 function disconnectMQTT() {
   mqttConnesso = false;
   chiudiStream();
+  fermaPolling();
   connectBtn.textContent = 'Connetti';
   mostraStato('disconnected', 'Disconnesso', '');
   apiRichiesta('/api/mqtt/disconnect', 'POST', {}).catch(function () {});
@@ -55,16 +58,26 @@ function applicaStatoMQTT(stato) {
     if (stato.broker) brokerInput.value = stato.broker;
     mostraStato('connected', 'Connesso', (stato.broker || '') + ' · ' + (stato.topic || ''));
     if (!eventiSSE) apriStream();
-  } else if (stato.error) {
-    mostraStato('disconnected', 'Errore: ' + stato.error, stato.error);
+    avviaPolling();
   } else {
-    mostraStato('disconnected', 'Disconnesso', '');
+    fermaPolling();
+    if (stato.error) {
+      mostraStato('disconnected', 'Errore: ' + stato.error, stato.error);
+    } else {
+      mostraStato('disconnected', 'Disconnesso', '');
+    }
   }
 }
 
 // All'avvio chiede al server se è già connesso (es. riconnessione automatica).
+// Riprova qualche volta perché il binario può essere appena partito.
 function inizializzaStatoMQTT() {
-  return apiGet('/api/status').then(function (stato) {
+  return apiGetConRitentativi('/api/status', 12, 500).then(function (stato) {
+    if (stato && stato.versione) {
+      versioneServer = stato.versione;
+      var el = document.getElementById('appVersion');
+      if (el) el.textContent = stato.versione;
+    }
     if (stato && stato.connected) {
       assicuraOpzione(osservatorioSelect, stato.osservatorio);
       if (stato.osservatorio) osservatorioSelect.value = stato.osservatorio;
@@ -83,25 +96,37 @@ function inizializzaStatoMQTT() {
 
 function apriStream() {
   chiudiStream();
-  if (typeof EventSource === 'undefined') return;
+  if (typeof EventSource === 'undefined') {
+    console.warn('MIMOSA: EventSource non supportato, uso solo il polling.');
+    return;
+  }
   eventiSSE = new EventSource('/api/stream');
 
-  eventiSSE.addEventListener('status', function (ev) {
+  var gestisci = function (ev) {
+    var msg;
     try {
-      var msg = JSON.parse(ev.data);
-      if (msg && msg.type === 'status' && msg.mqtt) applicaStatoMQTT(msg.mqtt);
-    } catch (_) {}
-  });
+      msg = JSON.parse(ev.data);
+    } catch (err) {
+      console.error('MIMOSA SSE: evento non valido', err);
+      return;
+    }
+    if (!msg) return;
+    if (msg.type === 'status' && msg.mqtt) {
+      applicaStatoMQTT(msg.mqtt);
+    } else if (msg.type === 'sample' && msg.sample) {
+      aggiungiCampioneUI(msg.sample);
+    }
+  };
 
-  eventiSSE.addEventListener('sample', function (ev) {
-    try {
-      var msg = JSON.parse(ev.data);
-      if (msg && msg.type === 'sample' && msg.sample) aggiungiCampioneUI(msg.sample);
-    } catch (_) {}
-  });
+  // Eventi con nome (server aggiornato)...
+  eventiSSE.addEventListener('status', gestisci);
+  eventiSSE.addEventListener('sample', gestisci);
+  // ...e fallback per server vecchi che mandano solo "data:" (evento message).
+  eventiSSE.onmessage = gestisci;
 
   eventiSSE.onerror = function () {
     if (!mqttConnesso) mostraStato('connecting', 'Riconnessione...', '');
+    // il polling periodico continua comunque ad aggiornare la dashboard
   };
 }
 
@@ -111,6 +136,37 @@ function chiudiStream() {
     eventiSSE = null;
   }
 }
+
+// ---- Polling di sicurezza (se SSE non arriva) ----
+
+function avviaPolling() {
+  if (pollingTimer) return;
+  pollingTimer = setInterval(sincronizzaDalServer, POLL_INTERVAL_MS);
+}
+
+function fermaPolling() {
+  if (pollingTimer) {
+    clearInterval(pollingTimer);
+    pollingTimer = null;
+  }
+}
+
+function sincronizzaDalServer() {
+  if (!mqttConnesso || sincronizzando) return;
+  sincronizzando = true;
+  Promise.all([caricaStorico(), aggiornaStatistiche()])
+    .then(function () {
+      updateDashboard();
+    })
+    .catch(function (err) {
+      console.warn('MIMOSA: sincronizzazione periodica fallita', err);
+    })
+    .then(function () {
+      sincronizzando = false;
+    });
+}
+
+// ---- Aggiornamento UI ----
 
 function appartieneAllaSelezione(d) {
   return d.osservatorio === currentOsservatorio &&
@@ -130,7 +186,7 @@ function aggiungiCampioneUI(sample) {
     allData = allData.slice(-MAX_MEMORIA);
   }
   ultimoIdCampione = Math.max(ultimoIdCampione, sample.id || 0);
-  ultimoArrivoDati = Date.now();
+  ultimoArrivoDati = sample.received_at || Date.now();
   if (appartieneAllaSelezione(d)) totaleCampioni += 1;
   updateDashboard();
 }
