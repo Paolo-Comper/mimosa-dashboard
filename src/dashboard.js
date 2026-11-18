@@ -96,6 +96,9 @@ function updateDashboard() {
 }
 
 function updateCharts(data) {
+  if (typeof Chart === 'undefined' || !chartPM || !chartTemp || !chartHum || !chartPress) {
+    return; // grafici non disponibili: il resto della dashboard funziona lo stesso
+  }
   var last50 = data.slice(-50);
   var labels = last50.map(function(d) { return fmtTimeShort(d.timestamp); });
 

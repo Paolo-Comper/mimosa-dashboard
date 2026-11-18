@@ -24,8 +24,14 @@ import (
 
 //go:embed index.html styles.css
 //go:embed src/*.js
+//go:embed src/vendor/*
 //go:embed res/LogoMarconi.png res/LogoOsservatorioUrbino.png res/LogoUniversitaDiUrbino.png res/LogoMimosa.png
 var assets embed.FS
+
+// versione può essere sovrascritta in build con:
+//
+//	-ldflags "-X main.versione=1.5.1"
+var versione = "1.5.1"
 
 const logo = `
   ╔══════════════════════════════════════════╗
@@ -105,12 +111,14 @@ DATI DI TEST (--test)
 
 ALTRE OPZIONI
   --db FILE        Database SQLite dello storico            default "mimosa.db"
+  --version        Mostra la versione ed esce
   PORT=9090 ./mimosa                     Cambia la porta del server (default 8080)
   ./mimosa --test <sensore> <count>      Vecchia sintassi (ancora supportata)
 
 NOTE
-  La dashboard carica grafici e mappa da internet: senza connessione la pagina
-  si apre ma grafici e mappa potrebbero non comparire.
+  Grafici e mappa sono inclusi nel binario: serve internet solo per le tile
+  della mappa. La dashboard va aperta dall'URL http://localhost:PORT (quello
+  stampato all'avvio), non come file index.html.
   Il broker viene contattato dal server locale: "host" usa MQTT TCP (porta
   1883); sono supportati anche ssl://host:8883, ws://host:porta/percorso e
   wss://host:porta/percorso.
@@ -121,17 +129,37 @@ func echo(msg string) {
 	fmt.Println(" ", msg)
 }
 
+// apriBrowser prova più comandi: su alcune distro Linux xdg-open non è
+// configurato e il browser non si apre (l'utente finirebbe per aprire il file
+// index.html, con conseguenti errori "NetworkError" sulle API).
 func apriBrowser(url string) {
-	var cmd *exec.Cmd
+	var candidati [][]string
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", url)
+		candidati = [][]string{{"open", url}}
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		candidati = [][]string{{"rundll32", "url.dll,FileProtocolHandler", url}}
 	default:
-		cmd = exec.Command("xdg-open", url)
+		candidati = [][]string{
+			{"xdg-open", url},
+			{"gio", "open", url},
+			{"sensible-browser", url},
+			{"x-www-browser", url},
+			{"firefox", url},
+			{"chromium", url},
+			{"google-chrome", url},
+		}
 	}
-	_ = cmd.Start()
+	for _, candidato := range candidati {
+		if _, err := exec.LookPath(candidato[0]); err != nil {
+			continue
+		}
+		cmd := exec.Command(candidato[0], candidato[1:]...)
+		if err := cmd.Start(); err == nil {
+			return
+		}
+	}
+	fmt.Println("  Apri manualmente il browser su: " + url)
 }
 
 func killPort(port int) {
@@ -303,11 +331,16 @@ func main() {
 	brokerFlag := flag.String("broker", "broker.hivemq.com", "Host del broker MQTT")
 	countFlag := flag.Int("count", 0, "Numero di messaggi di test (0 o assente = infinito)")
 	dbFlag := flag.String("db", "mimosa.db", "Percorso del database SQLite")
+	versionFlag := flag.Bool("version", false, "Mostra la versione ed esce")
 	flag.Usage = func() { fmt.Print(helpText) }
 	flag.Parse()
 
 	if *helpFlag {
 		fmt.Print(helpText)
+		return
+	}
+	if *versionFlag {
+		fmt.Println("MIMOSA " + versione)
 		return
 	}
 
@@ -434,6 +467,7 @@ func main() {
 	fmt.Print(logo)
 	fmt.Println()
 	url := fmt.Sprintf("http://localhost:%d", port)
+	echo("MIMOSA " + versione)
 	echo("Apri il browser: " + url)
 	echo("Database: " + *dbFlag)
 	if stats, err := store.statistiche("", ""); err == nil {

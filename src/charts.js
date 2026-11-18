@@ -34,6 +34,10 @@ function opzioniBase(yLabel, multi) {
 }
 
 function createMultiChart(ctx, datasets, yLabel) {
+  if (typeof Chart === 'undefined') {
+    console.error('MIMOSA: Chart.js non caricato, grafici disattivati');
+    return null;
+  }
   return new Chart(ctx, {
     type: 'line',
     data: { labels: [], datasets: datasets },

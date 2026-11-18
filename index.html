@@ -17,12 +17,11 @@
     }
   })();
 </script>
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<!-- MapLibre GL -->
-<link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=5">
+<!-- Librerie locali incluse nel binario: nessuna dipendenza da CDN -->
+<script src="src/vendor/chart.umd.min.js?v=6"></script>
+<link rel="stylesheet" href="src/vendor/maplibre-gl.css?v=6">
+<script src="src/vendor/maplibre-gl.js?v=6"></script>
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 
@@ -80,6 +79,7 @@
       <span>Archivio: <strong id="archiveInfo">—</strong></span>
       <span>Ultimo aggiornamento: <strong id="lastUpdate">—</strong></span>
       <span>Topic: <code id="currentTopic">mimosa/+/data</code></span>
+      <span>Versione: <strong id="appVersion">—</strong></span>
     </div>
   </section>
 
@@ -209,15 +209,15 @@
   </section>
 </main>
 
-<script src="src/state.js?v=5"></script>
-<script src="src/storage.js?v=5"></script>
-<script src="src/charts.js?v=5"></script>
-<script src="src/mqtt.js?v=5"></script>
-<script src="src/export.js?v=5"></script>
-<script src="src/dashboard.js?v=5"></script>
-<script src="src/main.js?v=5"></script>
-<script src="src/mappa.js?v=5"></script>
-<script src="src/theme.js?v=5"></script>
+<script src="src/state.js?v=6"></script>
+<script src="src/storage.js?v=6"></script>
+<script src="src/charts.js?v=6"></script>
+<script src="src/mqtt.js?v=6"></script>
+<script src="src/export.js?v=6"></script>
+<script src="src/dashboard.js?v=6"></script>
+<script src="src/main.js?v=6"></script>
+<script src="src/mappa.js?v=6"></script>
+<script src="src/theme.js?v=6"></script>
 </body>
 </html>
 
