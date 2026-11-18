@@ -32,9 +32,10 @@
 
 - Un PC con **Windows, macOS o Linux**.
 - Un **browser moderno** (Chrome, Edge, Firefox o Safari).
-- Una **connessione a internet**: grafici e mappa si caricano da CDN online.
-  Il collegamento al broker MQTT è fatto dal server locale. Senza internet la
-  pagina si apre, ma grafici e mappa potrebbero non comparire.
+- Una **connessione a internet** solo per le **tile della mappa**: le librerie
+  di grafici e mappa sono incluse nel binario. Il collegamento al broker MQTT è
+  fatto dal server locale. Senza internet la dashboard e i grafici funzionano,
+  la mappa può restare grigia.
 - Spazio su disco per il **database dell'archivio** (file `mimosa.db`).
 - *(solo se compili dal codice sorgente)* **Go 1.26 o superiore**.
 
@@ -85,7 +86,9 @@ chmod +x mimosa-linux-amd64
 
 ### Passo 3 — Usa la dashboard
 
-Il browser si apre da solo su **http://localhost:8080** (se non succede, aprirlo a mano).
+Il browser si apre da solo su **http://localhost:8080**. Se non si apre, copia
+l'URL stampato nel terminale e aprilo a mano: **non aprire il file `index.html`**
+(la pagina ha bisogno delle API del server e da `file://` non funziona).
 
 1. **Osservatorio**: lascia `mimosa` (o premi **+** per aggiungerne uno).
 2. **Sensore**: scegli il tuo sensore, oppure `Tutti i sensori`.
@@ -168,6 +171,7 @@ Il topic pubblicato è `{osservatorio}/{sensore}/data`.
 | `./mimosa`                                                       | Avvia la dashboard                             |
 | `./mimosa --dev`                                                 | Avvia leggendo i file da disco (sviluppo)      |
 | `./mimosa --help`                                                | Mostra l'aiuto                                 |
+| `./mimosa --version`                                             | Mostra la versione                             |
 | `./mimosa --test --sensore NOME`                                 | Pubblica dati di test in continuo              |
 | `./mimosa --test --sensore NOME --count 10`                      | Pubblica 10 messaggi di test                   |
 | `./mimosa --db archivio.db`                                      | Usa un database SQLite diverso                 |
@@ -311,7 +315,8 @@ riga evidenziata in tabella):
 
 Serve **Go 1.26+**. L'archivio usa SQLite in **puro Go**
 (`modernc.org/sqlite`): non serve CGO e il cross-compile con `CGO_ENABLED=0`
-funziona come prima.
+funziona come prima. Chart.js e MapLibre sono inclusi in `src/vendor/` e
+vengono incorporati nel binario: la dashboard non dipende più da CDN.
 
 ```bash
 git clone https://github.com/Paolo-Comper/mimosa-dashboard.git
@@ -343,14 +348,15 @@ node tests/logica.test.js     # logica della dashboard (Node)
 
 | Problema | Soluzione |
 | -------- | --------- |
-| La pagina si apre ma **grafici e mappa non compaiono** | Serve internet: grafici e mappa sono caricati da CDN online. |
+| **"NetworkError when attempting to fetch resource" / "Failed to fetch"** | Stai aprendo `index.html` come file o il server non è raggiungibile. Avvia l'eseguibile e apri l'URL `http://localhost:8080` stampato nel terminale (non il file). |
 | **Il browser non si apre da solo** | Vai a `http://localhost:8080` a mano. |
 | **"Porta 8080 occupata"** | MIMOSA libera la porta da sola; se persiste usa un'altra porta: `PORT=9090 ./mimosa`. |
-| **Non arrivano dati** | Premi **Connetti** e controlla broker e topic `{osservatorio}/{sensore}/data`. |
+| **Non arrivano dati** | Premi **Connetti** e controlla broker e topic `{osservatorio}/{sensore}/data`. La dashboard si aggiorna anche con un polling di sicurezza ogni 4 s. |
+| **I dati si aggiornavano solo cambiando sensore** | Era un bug della 1.5.0 (eventi SSE senza nome): risolto nella 1.5.1. Scarica l'ultima versione. |
 | **Connesso ma "Dati ricevuti: 0"** | Il topic ricevuto non corrisponde a osservatorio/sensore selezionati: controlla il topic mostrato nella barra. Sono supportati anche topic con più livelli e con `/` iniziale (es. `/uniurb/.../data`). |
 | **Errore di connessione al broker** | Il server usa MQTT **TCP** (porta `1883`). Se la rete blocca la 1883 usa `ssl://host:8883` (TLS) oppure `ws://host:porta/percorso` / `wss://host:porta/percorso` (WebSocket). Controlla host, porta e firewall. |
 | **Windows: il firewall chiede il permesso** | Accetta (serve per la porta locale). |
-| **La mappa è grigia / non si carica** | Serve internet; attendi qualche secondo dal primo avvio. |
+| **La mappa è grigia / non si carica** | Le librerie sono locali; servono internet e qualche secondo per le tile della mappa. |
 | **Il database non si apre / "database is locked"** | Assicurati di avere i permessi di scrittura sulla cartella di `mimosa.db` e non avviare due istanze di MIMOSA sullo stesso file. |
 | **Dati vecchi con nomi strani** | I campioni del vecchio storage del browser vengono importati automaticamente una volta al primo avvio; se l'import non riesce viene ritentato al successivo. |
 
