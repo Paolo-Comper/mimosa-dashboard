@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"math/rand"
@@ -162,6 +163,33 @@ func apriBrowser(url string) {
 	fmt.Println("  Apri manualmente il browser su: " + url)
 }
 
+// mimosaSuPorta verifica se sulla porta risponde l'API di una vecchia istanza
+// di MIMOSA. Serve per NON terminare processi di altri programmi sulla 8080.
+func mimosaSuPorta(port int) bool {
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/api/status", port))
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+	corpo, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if err != nil {
+		return false
+	}
+	var stato struct {
+		Versione  string `json:"versione"`
+		Connected *bool  `json:"connected"`
+		Topic     string `json:"topic"`
+	}
+	if err := json.Unmarshal(corpo, &stato); err != nil {
+		return false
+	}
+	return stato.Versione != "" || stato.Connected != nil || stato.Topic != ""
+}
+
 func killPort(port int) {
 	switch runtime.GOOS {
 	case "windows":
@@ -305,10 +333,6 @@ func pubblicaTest(osservatorio, sensore, broker string, count int) {
 	fmt.Println("  ============================================")
 }
 
-type logWriter struct{}
-
-func (logWriter) Write(p []byte) (int, error) { return len(p), nil }
-
 // La dashboard viene servita da un binario che cambia nel tempo: senza questi
 // header il browser puo' continuare a usare JS/CSS in cache dopo un aggiornamento.
 func noCache(next http.Handler) http.Handler {
@@ -398,26 +422,41 @@ func main() {
 		}
 	}
 
-	// Porta occupata? kill vecchia istanza
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		killPort(port)
-		for i := 0; i < 5; i++ {
-			time.Sleep(1 * time.Second)
-			ln, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
-			if err == nil {
-				echo(fmt.Sprintf("Kill vecchia istanza sulla porta %d", port))
+	// Trova una porta libera. Se una porta è occupata da una vecchia istanza di
+	// MIMOSA (riconosciuta dall'API /api/status) la chiude; se invece è occupata
+	// da un altro programma non lo tocca e passa alla porta successiva.
+	portaIniziale := port
+	libera := false
+	var ln net.Listener
+	var err error
+	for tentativo := 0; tentativo < 10; tentativo++ {
+		ln, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err == nil {
+			libera = true
+			break
+		}
+		if mimosaSuPorta(port) {
+			killPort(port)
+			for i := 0; i < 5; i++ {
+				time.Sleep(1 * time.Second)
+				ln, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
+				if err == nil {
+					echo(fmt.Sprintf("Chiusa la vecchia istanza MIMOSA sulla porta %d", port))
+					libera = true
+					break
+				}
+			}
+			if libera {
 				break
 			}
 		}
-		if err != nil {
-			echo(fmt.Sprintf("Porta %d occupata, provo %d...", port, port+1))
-			port++
-			ln, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
-			if err != nil {
-				log.Fatalf("Nessuna porta libera: %v", err)
-			}
-		}
+		port++
+	}
+	if !libera {
+		log.Fatalf("Nessuna porta libera tra %d e %d: %v", portaIniziale, port, err)
+	}
+	if port != portaIniziale {
+		echo(fmt.Sprintf("Porta %d occupata: MIMOSA usa %d", portaIniziale, port))
 	}
 	ln.Close()
 
@@ -459,8 +498,9 @@ func main() {
 	mux.Handle("/", noCache(fileServer))
 
 	server := &http.Server{
-		Handler:  mux,
-		ErrorLog: log.New(logWriter{}, "", 0),
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ErrorLog:          log.Default(),
 	}
 
 	// Stampa info

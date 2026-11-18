@@ -1,13 +1,14 @@
 # MIMOSA v1.5.1 — Dati in tempo reale e dashboard locale
 
-Release del 18 novembre 2026.
+Release del 18 novembre 2026. Include **solo Linux e Windows**: la versione
+macOS non è inclusa perché non è stato possibile testarla.
 
 ## Correzioni principali
 
 - **Dati in tempo reale (bug SSE)** — il server inviava gli eventi senza nome e
   il browser ascoltava eventi `sample`/`status` che non arrivavano mai. Effetto:
   la dashboard sembrava connessa, ma i dati comparivano solo cambiando sensore
-  (o "a blocchi" quando si interagiva). Ora gli eventi sono nominati e la
+  (o "a blocchi" quando si interagiva). Ora gli eventi sono nominati e
   tabella/grafici/card si aggiornano a ogni campione.
 - **Polling di sicurezza** — anche se SSE viene bloccato o bufferizzato da
   proxy/browser/rete, la dashboard si riallinea ogni 4 secondi e quando si
@@ -24,8 +25,12 @@ Release del 18 novembre 2026.
 - **Posizione GPS** — viene mostrata subito anche aprendo la dashboard con
   storico recente (`received_at`); il pallino viene rimosso dopo 20 secondi
   senza dati (comportamento assunto, da confermare col professore).
+- **Porta occupata** — MIMOSA chiude solo una vecchia istanza MIMOSA
+  riconosciuta dall'API, non processi di altri programmi; se la porta è occupata
+  da altro passa alla successiva e stampa l'URL corretto.
 - **Robustezza** — guardie se una libreria grafica non è disponibile, errori SSE
-  non più silenziosi, versione visibile nella barra di stato.
+  non più silenziosi, connessioni MQTT serializzate (niente doppie istanze
+  auto-connect + click), versione visibile nella barra di stato.
 
 ## Note per l'aggiornamento
 
@@ -43,15 +48,13 @@ Release del 18 novembre 2026.
 | ------- | ---- |
 | Windows 64 bit | `mimosa-windows-amd64.exe` |
 | Linux 64 bit | `mimosa-linux-amd64` |
-| macOS Intel | `mimosa-darwin-amd64` |
-| macOS Apple Silicon (M1/M2/M3) | `mimosa-darwin-arm64` |
 
 ## Avvio rapido
 
-**Linux / macOS**
+**Linux**
 
 ```bash
-chmod +x mimosa-linux-amd64        # oppure mimosa-darwin-*
+chmod +x mimosa-linux-amd64
 ./mimosa-linux-amd64
 ```
 
@@ -66,8 +69,6 @@ stampato nel terminale e aprilo a mano (non aprire il file `index.html`).
 ## Checksums SHA-256
 
 ```text
-a440b71f9128f34bf97ffb6864ea132029fbd8062d7638c259a75bdfd21af028  mimosa-darwin-amd64
-700180ff33716fdd959ae196e5a0022566205c72a678b5afd9118116eeb3cfd8  mimosa-darwin-arm64
-e2e6c1bd6e5f7339562f2395c26c51ea105812d2a52e9b6da0abb7752f0d0f5d  mimosa-linux-amd64
-0fa8746705544dfbe0b586b72148b6fd8eaee45e295386bbc10b42765cf52e8a  mimosa-windows-amd64.exe
+9899bb217d27642befdc7f09625a25255e0749c5c6677b15b4d2f2e481ef8a60  mimosa-linux-amd64
+78a3c4a6abb16f71d19acf01d48aa20af2d0fac340848af00edb08696fb45590  mimosa-windows-amd64.exe
 ```

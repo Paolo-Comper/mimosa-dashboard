@@ -3,10 +3,14 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"io"
 	"math"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -362,4 +366,46 @@ func TestAPIStatusVersioneECSamplesReceivedAt(t *testing.T) {
 	if campioni[0].ReceivedAt <= 0 {
 		t.Fatalf("received_at non valorizzato: %+v", campioni[0])
 	}
+}
+
+func TestMimosaSuPorta(t *testing.T) {
+	mimosa := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/status" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"versione":"test","connected":false,"topic":""}`)
+	}))
+	defer mimosa.Close()
+	portaMimosa := portaDi(t, mimosa.URL)
+	if !mimosaSuPorta(portaMimosa) {
+		t.Fatalf("porta %d non riconosciuta come MIMOSA", portaMimosa)
+	}
+
+	altro := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, "<html>altro programma</html>")
+	}))
+	defer altro.Close()
+	portaAltra := portaDi(t, altro.URL)
+	if mimosaSuPorta(portaAltra) {
+		t.Fatalf("porta %d di un altro programma riconosciuta come MIMOSA", portaAltra)
+	}
+}
+
+func portaDi(t *testing.T, rawURL string) int {
+	t.Helper()
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, p, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	porta, err := strconv.Atoi(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return porta
 }

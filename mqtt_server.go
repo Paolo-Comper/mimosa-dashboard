@@ -28,6 +28,9 @@ type StatoMQTT struct {
 // GestoreMQTT si occupa della connessione al broker: è il server a ricevere i
 // messaggi e a salvarli in SQLite, non il browser.
 type GestoreMQTT struct {
+	// opMu serializza connetti/disconnetti: evita due client MQTT in parallelo
+	// (es. auto-connect all'avvio + click su "Connetti").
+	opMu   sync.Mutex
 	mu     sync.Mutex
 	store  *Store
 	hub    *Hub
@@ -118,6 +121,12 @@ func randString(n int) string {
 }
 
 func (g *GestoreMQTT) Connetti(brokerRaw, topic string) (StatoMQTT, error) {
+	g.opMu.Lock()
+	defer g.opMu.Unlock()
+	return g.connetti(brokerRaw, topic)
+}
+
+func (g *GestoreMQTT) connetti(brokerRaw, topic string) (StatoMQTT, error) {
 	brokerRaw = strings.TrimSpace(brokerRaw)
 	topic = strings.TrimSpace(topic)
 	if topic == "" {
@@ -217,6 +226,8 @@ func (g *GestoreMQTT) Connetti(brokerRaw, topic string) (StatoMQTT, error) {
 }
 
 func (g *GestoreMQTT) Disconnetti() StatoMQTT {
+	g.opMu.Lock()
+	defer g.opMu.Unlock()
 	g.mu.Lock()
 	cli := g.client
 	g.client = nil
@@ -244,8 +255,16 @@ func (g *GestoreMQTT) Autoconnetti() {
 		return
 	}
 	go func() {
+		g.opMu.Lock()
+		defer g.opMu.Unlock()
+		// Ricontrolla: nel frattempo l'utente potrebbe aver premuto
+		// "Disconnetti" (auto=0) o "Connetti" con altri parametri.
+		autoOra, _ := g.store.leggiImpostazione("auto")
+		if autoOra != "1" {
+			return
+		}
 		log.Printf("MQTT: riconnessione automatica a %s (%s)", broker, topic)
-		if _, err := g.Connetti(broker, topic); err != nil {
+		if _, err := g.connetti(broker, topic); err != nil {
 			log.Printf("MQTT: auto-connect fallita: %v", err)
 		}
 	}()

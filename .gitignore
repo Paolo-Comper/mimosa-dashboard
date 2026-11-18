@@ -11,3 +11,9 @@ dist/
 *.db
 *.db-wal
 *.db-shm
+
+# Stato di tool esterni (non fa parte del progetto)
+.codewhale/
+
+# Eventuali file di appoggio SQLite
+*.db-journal

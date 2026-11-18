@@ -11,7 +11,6 @@
     <img src="https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go">
     <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux">
     <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows">
-    <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS">
     <img src="https://img.shields.io/badge/MQTT-660066?style=for-the-badge&logo=mqtt&logoColor=white" alt="MQTT">
   </p>
 </div>
@@ -30,7 +29,7 @@
 
 ## 1. Cosa serve (requisiti)
 
-- Un PC con **Windows, macOS o Linux**.
+- Un PC con **Windows o Linux**.
 - Un **browser moderno** (Chrome, Edge, Firefox o Safari).
 - Una **connessione a internet** solo per le **tile della mappa**: le librerie
   di grafici e mappa sono incluse nel binario. Il collegamento al broker MQTT è
@@ -55,28 +54,12 @@ Dalla pagina [**Releases**](https://github.com/Paolo-Comper/mimosa-dashboard/rel
 | ------------------------------------- | -------------------------- |
 | Windows (Intel/AMD, 64 bit)           | `mimosa-windows-amd64.exe` |
 | Linux (Intel/AMD, 64 bit)             | `mimosa-linux-amd64`       |
-| Mac con processore **Intel**          | `mimosa-darwin-amd64`      |
-| Mac con processore **Apple (M1/M2/M3)** | `mimosa-darwin-arm64`    |
-
-> Non sai quale Mac hai? Menu  → **Informazioni su questo Mac**: se vedi "Chip Apple" scarica `arm64`, se vedi "Intel" scarica `amd64`.
-
 ### Passo 2 — Avvialo
 
 **Windows**
 1. Rinomina il file scaricato in `mimosa.exe` (facoltativo ma comodo).
 2. Doppio click.
 3. Se appare l'avviso di Windows SmartScreen: **Ulteriori informazioni** → **Esegui comunque**.
-
-**macOS**
-1. Apri il Terminale nella cartella del file e digita:
-   ```bash
-   chmod +x mimosa-darwin-arm64      # oppure mimosa-darwin-amd64
-   ./mimosa-darwin-arm64
-   ```
-2. Se macOS blocca l'app: tasto destro sul file → **Apri** → **Apri**, oppure:
-   ```bash
-   xattr -d com.apple.quarantine mimosa-darwin-arm64
-   ```
 
 **Linux**
 ```bash
@@ -325,14 +308,12 @@ go build -o mimosa .
 ./mimosa
 ```
 
-Per creare i file delle release per tutte le piattaforme:
+Per creare i binari delle release (Linux e Windows):
 
 ```bash
 mkdir -p dist
 CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/mimosa-linux-amd64 .
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/mimosa-windows-amd64.exe .
-CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/mimosa-darwin-amd64 .
-CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o dist/mimosa-darwin-arm64 .
 ```
 
 Test della logica:
@@ -350,7 +331,7 @@ node tests/logica.test.js     # logica della dashboard (Node)
 | -------- | --------- |
 | **"NetworkError when attempting to fetch resource" / "Failed to fetch"** | Stai aprendo `index.html` come file o il server non è raggiungibile. Avvia l'eseguibile e apri l'URL `http://localhost:8080` stampato nel terminale (non il file). |
 | **Il browser non si apre da solo** | Vai a `http://localhost:8080` a mano. |
-| **"Porta 8080 occupata"** | MIMOSA libera la porta da sola; se persiste usa un'altra porta: `PORT=9090 ./mimosa`. |
+| **"Porta 8080 occupata"** | Se è una vecchia istanza MIMOSA la chiude; se è un altro programma usa la porta successiva e stampa l'URL da aprire. Per forzare: `PORT=9090 ./mimosa`. |
 | **Non arrivano dati** | Premi **Connetti** e controlla broker e topic `{osservatorio}/{sensore}/data`. La dashboard si aggiorna anche con un polling di sicurezza ogni 4 s. |
 | **I dati si aggiornavano solo cambiando sensore** | Era un bug della 1.5.0 (eventi SSE senza nome): risolto nella 1.5.1. Scarica l'ultima versione. |
 | **Connesso ma "Dati ricevuti: 0"** | Il topic ricevuto non corrisponde a osservatorio/sensore selezionati: controlla il topic mostrato nella barra. Sono supportati anche topic con più livelli e con `/` iniziale (es. `/uniurb/.../data`). |
@@ -375,7 +356,7 @@ appartengono al database.
 - **Backup**: il file cresce con i dati, quindi conviene salvarlo ogni tanto.
   Ferma MIMOSA (Ctrl+C) e copia il database:
   ```bash
-  # Linux / macOS
+  # Linux
   cp mimosa.db mimosa-backup-$(date +%F).db
   # Windows (Prompt dei comandi)
   copy mimosa.db mimosa-backup.db
